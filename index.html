@@ -106,8 +106,17 @@
     <button class="tab" data-v="ajustes">Ajustes</button>
   </div>
 
+  <div id="filtros" style="display:none">
+    <div class="grid" style="margin-bottom:14px">
+      <input class="full" type="text" id="f-texto" placeholder="🔍 Buscar (ej: nafta)">
+      <select id="f-cat"></select>
+      <select id="f-medio"></select>
+      <button class="btn btn-ghost full" id="f-clear">Limpiar filtros</button>
+    </div>
+  </div>
+
   <div id="content"></div>
-  <p class="foot">Mis Gastos v3 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v4 · tus datos se guardan en este dispositivo.</p>
 
   <button id="fab" title="Cargar gasto variable">＋</button>
 
@@ -224,6 +233,7 @@ function proyeccion(){
 function render(){
   $("monthLabel").textContent = nombreMes(mesActivo);
   $("eyeBtn").textContent = oculto ? "🙈" : "👁";
+  $("filtros").style.display = vista==="mov" ? "" : "none";
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.v===vista));
   const c = computeMes(mesActivo);
 
@@ -284,6 +294,24 @@ function grupoCuotas(lista){
 }
 function renderMov(c){
   let h="";
+  const filtroActivo = fTexto.trim()!=="" || fCat!=="__todas" || fMedio!=="__todos";
+  if(filtroActivo){
+    const q=fTexto.trim().toLowerCase();
+    let items=[];
+    c.fijos.forEach(f=>items.push({nombre:f.nombre, categoria:f.cat, medio:"", monto:f.monto, tipo:"Fijo", color:COLORES[f.cat]||"#f59e0b"}));
+    c.cuotas.forEach(x=>items.push({nombre:x.nombre, categoria:"Cuotas", medio:"", monto:x.monto, tipo:(x.fuente==="Visa"?"Visa":"Mercado Pago"), color:"#a855f7"}));
+    c.variables.forEach(v=>items.push({nombre:v.descripcion||v.categoria, categoria:v.categoria, medio:v.medio, monto:v.monto, tipo:"Variable", color:COLORES[v.categoria]||"#64748b", id:v.id, fecha:v.fecha}));
+    const res=items.filter(it=>{
+      if(fCat!=="__todas" && it.categoria!==fCat) return false;
+      if(fMedio!=="__todos" && it.medio!==fMedio) return false;
+      if(q && !(it.nombre.toLowerCase().includes(q) || it.categoria.toLowerCase().includes(q))) return false;
+      return true;
+    });
+    const suma=res.reduce((s,x)=>s+x.monto,0);
+    h+=`<div class="grouphdr"><span>${res.length} resultado${res.length===1?"":"s"} · ${nombreMes(mesActivo)}</span><span>${fmt(suma)}</span></div>`;
+    h+= res.length? res.map(it=>{ const meta = it.tipo==="Variable" ? (it.categoria+" · "+it.medio+" · "+it.fecha.slice(8,10)+"/"+it.fecha.slice(5,7)) : (it.categoria+" · "+it.tipo); return fila(it.nombre, meta, it.monto, it.color, it.id, it.id); }).join("") : `<div class="empty">Sin resultados con esos filtros en este mes.</div>`;
+    $("content").innerHTML=h; return;
+  }
   if(c.ingresos.length){ h+=`<div class="grouphdr"><span>Ingresos</span><span>${fmt(c.ingreso)}</span></div>`;
     h+= c.ingresos.map(g=>fila(g.nombre,"Ingreso mensual",g.monto,"#10b981")).join(""); }
 
@@ -462,8 +490,15 @@ $("exportBtn").onclick=exportar;
 $("eyeBtn").onclick=()=>{ oculto=!oculto; render(); };
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ vista=t.dataset.v; render(); });
 
+let fTexto="", fCat="__todas", fMedio="__todos";
 $("q-cat").innerHTML = CATS.map(c=>`<option>${c}</option>`).join("");
 $("q-medio").innerHTML = MEDIOS.map(m=>`<option>${m}</option>`).join("");
+$("f-cat").innerHTML = `<option value="__todas">Todas las categorías</option>` + CATS.map(c=>`<option value="${c}">${c}</option>`).join("");
+$("f-medio").innerHTML = `<option value="__todos">Todos los medios</option>` + MEDIOS.map(m=>`<option value="${m}">${m}</option>`).join("");
+$("f-texto").oninput=()=>{ fTexto=$("f-texto").value; render(); };
+$("f-cat").onchange=()=>{ fCat=$("f-cat").value; render(); };
+$("f-medio").onchange=()=>{ fMedio=$("f-medio").value; render(); };
+$("f-clear").onclick=()=>{ fTexto=""; fCat="__todas"; fMedio="__todos"; $("f-texto").value=""; $("f-cat").value="__todas"; $("f-medio").value="__todos"; render(); };
 $("fab").onclick=abrirModalAlta;
 $("m-close").onclick=cerrarModal;
 $("modal").onclick=e=>{ if(e.target.id==="modal") cerrarModal(); };
