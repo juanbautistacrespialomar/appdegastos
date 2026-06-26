@@ -104,7 +104,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v6 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v1 · tus datos se guardan en este dispositivo.</p>
 
   <button id="fab" title="Cargar gasto variable">＋</button>
 
@@ -125,102 +125,19 @@
 
 <script>
 "use strict";
-const CATS = ["Comida","Transporte","Salidas/Asados","Servicios","Suscripciones","Salud","Ocio","Cuotas","Alquiler","Gimnasio","Otros"];
+const CATS = ["Comida","Transporte","Salidas/Asados","Hogar","Servicios","Suscripciones","Salud","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
-const COLORES = { "Comida":"#22c55e","Transporte":"#3b82f6","Salidas/Asados":"#f59e0b","Servicios":"#06b6d4","Suscripciones":"#6366f1","Salud":"#ec4899","Ocio":"#fb7185","Cuotas":"#a855f7","Alquiler":"#14b8a6","Gimnasio":"#84cc16","Otros":"#64748b" };
+const COLORES = { "Comida":"#22c55e","Transporte":"#3b82f6","Salidas/Asados":"#f59e0b","Hogar":"#fb923c","Servicios":"#06b6d4","Suscripciones":"#6366f1","Salud":"#ec4899","Ocio":"#fb7185","Educación":"#0ea5e9","Ropa":"#d946ef","Viajes":"#eab308","Mascotas":"#b45309","Regalos":"#f43f5e","Gimnasio":"#84cc16","Impuestos":"#94a3b8","Alquiler":"#14b8a6","Cuotas":"#a855f7","Otros":"#64748b" };
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const MC = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
-function SEED() { return {
-  sueldo: 2182000,
-  desde: "2026-06",
-  fijos: [
-    {n:"Alquiler",cat:"Alquiler",hist:[{d:"2026-06",m:400000}]},
-    {n:"Luz",cat:"Servicios",hist:[{d:"2026-06",m:121003}]},
-    {n:"Internet",cat:"Servicios",hist:[{d:"2026-06",m:34900}]},
-    {n:"Verisure (abono)",cat:"Servicios",hist:[{d:"2026-06",m:90800}]},
-    {n:"Flow",cat:"Suscripciones",hist:[{d:"2026-06",m:48700}]},
-    {n:"Amazon Prime",cat:"Suscripciones",hist:[{d:"2026-06",m:8000}]},
-    {n:"Youtube Premium",cat:"Suscripciones",hist:[{d:"2026-06",m:2985}]},
-    {n:"Icloud",cat:"Suscripciones",hist:[{d:"2026-06",m:14985}]},
-    {n:"Entrenamiento fútbol",cat:"Gimnasio",hist:[{d:"2026-06",m:111000}]},
-    {n:"Seguro del auto",cat:"Transporte",hist:[{d:"2026-06",m:85300}]},
-    {n:"Psicólogo",cat:"Salud",hist:[{d:"2026-06",m:180000}]},
-    {n:"Socio Interior - Boca",cat:"Ocio",hist:[{d:"2026-06",m:30480}]}
-  ],
-  cuotas: [
-    {n:"Campera Adidas",f:"Visa",c:2,t:6,m:28333,d:"2026-06"},
-    {n:"Inflador",f:"Visa",c:1,t:9,m:9672,d:"2026-06"},
-    {n:"Easy",f:"Visa",c:1,t:6,m:18038,d:"2026-06"},
-    {n:"The North Face",f:"Visa",c:1,t:9,m:81111,d:"2026-06"},
-    {n:"Perfumes",f:"Visa",c:1,t:12,m:68167,d:"2026-06"},
-    {n:"Aspiradora",f:"Visa",c:1,t:12,m:53642,d:"2026-06"},
-    {n:"Espejo Redondo",f:"Visa",c:1,t:3,m:13130,d:"2026-06"},
-    {n:"Grimoldi",f:"Visa",c:3,t:6,m:3133,d:"2026-06"},
-    {n:"Vans",f:"Visa",c:3,t:6,m:5700,d:"2026-06"},
-    {n:"Dicrocias",f:"Visa",c:1,t:6,m:4298,d:"2026-07"},
-    {n:"Frères",f:"Visa",c:4,t:6,m:34500,d:"2026-06"},
-    {n:"Frères",f:"Visa",c:1,t:3,m:6600,d:"2026-07"},
-    {n:"Verisure (equipos)",f:"Visa",c:1,t:12,m:53441,d:"2026-07"},
-    {n:"Lámpara de Pie",f:"Visa",c:2,t:12,m:10825,d:"2026-06"},
-    {n:"Rip Curl",f:"Visa",c:2,t:3,m:80000,d:"2026-06"},
-    {n:"Baradero",f:"Visa",c:2,t:24,m:3039,d:"2026-06"},
-    {n:"Libro Indio",f:"Visa",c:1,t:3,m:23893,d:"2026-07"},
-    {n:"Mueble Baño",f:"Visa",c:2,t:12,m:11417,d:"2026-06"},
-    {n:"Frères",f:"Visa",c:8,t:9,m:21889,d:"2026-06"},
-    {n:"MELI",f:"MercadoPago",c:2,t:3,m:70790,d:"2026-06"},
-    {n:"MELI",f:"MercadoPago",c:2,t:3,m:29051,d:"2026-06"},
-    {n:"COTO",f:"MercadoPago",c:2,t:3,m:31750,d:"2026-06"},
-    {n:"MELI",f:"MercadoPago",c:2,t:3,m:28333,d:"2026-06"},
-    {n:"Plancha",f:"MercadoPago",c:2,t:3,m:30000,d:"2026-06"},
-    {n:"MELI",f:"MercadoPago",c:2,t:3,m:16667,d:"2026-06"},
-    {n:"MELI",f:"MercadoPago",c:2,t:3,m:53333,d:"2026-06"},
-    {n:"MELI",f:"MercadoPago",c:2,t:3,m:31177,d:"2026-06"},
-    {n:"Coto",f:"MercadoPago",c:2,t:3,m:141499,d:"2026-06"},
-    {n:"Repuesto One Blade",f:"MercadoPago",c:2,t:3,m:23333,d:"2026-06"}
-  ]
-};}
+function ymNow(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
 
-function MOV_SEED() { return [
-  {id:"j01",monto:26535,categoria:"Comida",fecha:"2026-06-01",descripcion:"Supermercado El Griego",medio:"—"},
-  {id:"j02",monto:158628.38,categoria:"Comida",fecha:"2026-06-01",descripcion:"Supermercado COTO",medio:"—"},
-  {id:"j03",monto:7600,categoria:"Otros",fecha:"2026-06-01",descripcion:"Correo Argentino - envío camiseta de Boca",medio:"—"},
-  {id:"j04",monto:4550,categoria:"Transporte",fecha:"2026-06-02",descripcion:"Peajes",medio:"—"},
-  {id:"j05",monto:27400,categoria:"Comida",fecha:"2026-06-02",descripcion:"Supermercado",medio:"—"},
-  {id:"j06",monto:23900,categoria:"Transporte",fecha:"2026-06-03",descripcion:"Patente auto",medio:"—"},
-  {id:"j07",monto:76000,categoria:"Transporte",fecha:"2026-06-03",descripcion:"Nafta",medio:"—"},
-  {id:"j08",monto:6000,categoria:"Comida",fecha:"2026-06-04",descripcion:"Almuerzo oficina",medio:"—"},
-  {id:"j09",monto:1000,categoria:"Transporte",fecha:"2026-06-04",descripcion:"Gomería",medio:"—"},
-  {id:"j10",monto:20000,categoria:"Otros",fecha:"2026-06-04",descripcion:"Plomero",medio:"—"},
-  {id:"j11",monto:10000,categoria:"Transporte",fecha:"2026-06-05",descripcion:"Gomería",medio:"—"},
-  {id:"j12",monto:14870,categoria:"Salud",fecha:"2026-06-05",descripcion:"Farmacia",medio:"—"},
-  {id:"j13",monto:17200,categoria:"Salidas/Asados",fecha:"2026-06-06",descripcion:"Cena con compañeros de oficina",medio:"—"},
-  {id:"j14",monto:6500,categoria:"Comida",fecha:"2026-06-08",descripcion:"Almuerzo oficina",medio:"—"},
-  {id:"j15",monto:4650,categoria:"Comida",fecha:"2026-06-09",descripcion:"Almuerzo oficina",medio:"—"},
-  {id:"j16",monto:62016,categoria:"Transporte",fecha:"2026-06-10",descripcion:"Nafta",medio:"—"},
-  {id:"j17",monto:4400,categoria:"Comida",fecha:"2026-06-11",descripcion:"Almuerzo oficina",medio:"—"},
-  {id:"j18",monto:4400,categoria:"Comida",fecha:"2026-06-12",descripcion:"Almuerzo oficina",medio:"—"},
-  {id:"j19",monto:56415,categoria:"Comida",fecha:"2026-06-12",descripcion:"Supermercado",medio:"—"},
-  {id:"j20",monto:12500,categoria:"Comida",fecha:"2026-06-15",descripcion:"Sándwiches de miga",medio:"—"},
-  {id:"j21",monto:20000,categoria:"Otros",fecha:"2026-06-15",descripcion:"Regalo sofá",medio:"—"},
-  {id:"j22",monto:4400,categoria:"Comida",fecha:"2026-06-16",descripcion:"Almuerzo oficina",medio:"—"},
-  {id:"j23",monto:4400,categoria:"Comida",fecha:"2026-06-18",descripcion:"Almuerzo oficina",medio:"—"},
-  {id:"j24",monto:1819,categoria:"Otros",fecha:"2026-06-19",descripcion:"Interés transferencia (psicólogo)",medio:"—"},
-  {id:"j25",monto:4570.70,categoria:"Comida",fecha:"2026-06-19",descripcion:"Almuerzo oficina",medio:"—"},
-  {id:"j26",monto:23862,categoria:"Salud",fecha:"2026-06-19",descripcion:"Farmacia",medio:"—"},
-  {id:"j27",monto:4065,categoria:"Comida",fecha:"2026-06-19",descripcion:"Supermercado",medio:"—"},
-  {id:"j28",monto:41130,categoria:"Comida",fecha:"2026-06-19",descripcion:"Supermercado",medio:"—"},
-  {id:"j29",monto:6200,categoria:"Comida",fecha:"2026-06-20",descripcion:"YPF kiosco",medio:"—"},
-  {id:"j30",monto:72006,categoria:"Transporte",fecha:"2026-06-20",descripcion:"Nafta",medio:"—"},
-  {id:"j31",monto:40000,categoria:"Salidas/Asados",fecha:"2026-06-21",descripcion:"Birra recital",medio:"—"},
-  {id:"j32",monto:8000,categoria:"Comida",fecha:"2026-06-21",descripcion:"Hamburguesa",medio:"—"},
-  {id:"j33",monto:35300,categoria:"Comida",fecha:"2026-06-21",descripcion:"Supermercado",medio:"—"},
-  {id:"j34",monto:11012,categoria:"Comida",fecha:"2026-06-22",descripcion:"Hamburguesa",medio:"—"},
-  {id:"j35",monto:4400,categoria:"Comida",fecha:"2026-06-23",descripcion:"Almuerzo oficina",medio:"—"},
-  {id:"j36",monto:4650,categoria:"Comida",fecha:"2026-06-24",descripcion:"Almuerzo oficina",medio:"—"}
-];}
+// Versión limpia: sin datos personales. Cada quien carga lo suyo desde Ajustes.
+function SEED() { return { sueldo:0, desde:ymNow(), fijos:[], cuotas:[] }; }
+function MOV_SEED() { return []; }
 
-const CKEY="misGastos.config.v5", MKEY="misGastos.mov.v3";
+const CKEY="misGastosApp.config.v1", MKEY="misGastosApp.mov.v1";
 const mem={};
 function load(k,def){ try{const r=localStorage.getItem(k); return r?JSON.parse(r):def;}catch(e){ return (k in mem)?mem[k]:def; } }
 function save(k,v){ mem[k]=v; try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
@@ -228,8 +145,8 @@ function save(k,v){ mem[k]=v; try{localStorage.setItem(k,JSON.stringify(v));}cat
 let config = load(CKEY,null); if(!config){ config=SEED(); save(CKEY,config); }
 let mov = load(MKEY,null); if(mov===null){ mov=MOV_SEED(); save(MKEY,mov); }
 let vista="resumen";
-let mesActivo="2026-06";
-let colapsado={}; // categorías de fijos colapsadas (por defecto sí)
+let mesActivo=ymNow();
+let colapsado={};
 
 const $ = id => document.getElementById(id);
 const fmt = n => new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0}).format(Math.round(n)||0);
@@ -242,7 +159,6 @@ function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",
 function persistC(){ save(CKEY,config); } function persistM(){ save(MKEY,mov); }
 function histLabel(d){ return MC[(+d.split("-")[1])-1]+" '"+d.slice(2,4); }
 
-// Monto vigente de un fijo en un mes dado (precio con fecha de vigencia)
 function fijoMonto(f,ym){ let best=null; (f.hist||[]).forEach(h=>{ if(h.d<=ym && (!best||h.d>best.d)) best=h; }); return best?best.m:0; }
 function setFijoAmount(i,desde,monto){
   const f=config.fijos[i]; if(!f.hist) f.hist=[];
@@ -335,7 +251,7 @@ function renderMov(c){
   if(c.ingreso) h+=`<div class="grouphdr"><span>Ingreso</span><span>${fmt(c.ingreso)}</span></div>`+fila("Sueldo","Ingreso mensual",c.ingreso,"#10b981");
 
   h+=`<div class="grouphdr"><span>Gastos fijos</span><span>${fmt(c.tF)}</span></div>`;
-  if(!c.fijos.length){ h+=`<div class="empty">—</div>`; }
+  if(!c.fijos.length){ h+=`<div class="empty">Agregá tus gastos fijos desde Ajustes.</div>`; }
   else {
     const grupos={}; c.fijos.forEach(f=>{ (grupos[f.cat]=grupos[f.cat]||[]).push(f); });
     Object.keys(grupos).sort((a,b)=>grupos[b].reduce((s,x)=>s+x.monto,0)-grupos[a].reduce((s,x)=>s+x.monto,0)).forEach(cat=>{
@@ -349,9 +265,9 @@ function renderMov(c){
   }
 
   h+=`<div class="grouphdr"><span>Cuotas</span><span>${fmt(c.tC)}</span></div>`;
-  h+= c.cuotas.length? c.cuotas.map(q=>fila(q.nombre, q.fuente, q.monto, "#a855f7")).join("") : `<div class="empty">Sin cuotas este mes 🎉</div>`;
+  h+= c.cuotas.length? c.cuotas.map(q=>fila(q.nombre, q.fuente, q.monto, "#a855f7")).join("") : `<div class="empty">Sin cuotas este mes.</div>`;
   h+=`<div class="grouphdr"><span>Variables</span><span>${fmt(c.tV)}</span></div>`;
-  h+= c.variables.length? c.variables.map(v=>fila(v.descripcion||v.categoria, v.categoria+" · "+v.medio+" · "+v.fecha.slice(8,10)+"/"+v.fecha.slice(5,7), v.monto, COLORES[v.categoria]||"#64748b", v.id)).join("") : `<div class="empty">Cargá gastos variables desde "Ajustes ▸ + Gasto variable".</div>`;
+  h+= c.variables.length? c.variables.map(v=>fila(v.descripcion||v.categoria, v.categoria+" · "+v.medio+" · "+v.fecha.slice(8,10)+"/"+v.fecha.slice(5,7), v.monto, COLORES[v.categoria]||"#64748b", v.id)).join("") : `<div class="empty">Tocá el botón "+" para cargar un gasto.</div>`;
   $("content").innerHTML=h;
 }
 
@@ -364,10 +280,12 @@ function renderCuotas(){
       else { rest=(q.t-q.c)-k+1; actual=(q.c+k)+"/"+q.t; }
       return {q,actual,rest,total:rest*q.m};
     });
+    if(!items.length) return "";
     const sub = items.reduce((s,x)=>s+x.total,0);
     const rows = items.map(x=>fila(x.q.n, "Cuota "+x.actual+(x.rest?` · quedan ${x.rest} ($${fmtN(x.q.m)}/mes)`:""), x.total, x.rest?"#a855f7":"#475569")).join("");
     return `<div class="grouphdr"><span>${fuente}</span><span>restante: ${fmt(sub)}</span></div>${rows}`;
   }
+  if(!config.cuotas.length){ $("content").innerHTML=`<div class="empty">No tenés cuotas cargadas.<br>Agregalas desde Ajustes ▸ Cuotas.</div>`; return; }
   const totalRest = config.cuotas.reduce((s,q)=>{ const k=ymDiff(q.d,mesActivo); let rest; if(k<0) rest=q.t-q.c+1; else if(k>(q.t-q.c)) rest=0; else rest=(q.t-q.c)-k+1; return s+rest*q.m; },0);
   $("content").innerHTML =
     `<div class="panel" style="padding:12px 14px"><div class="row between"><span style="color:var(--muted);font-size:13px">Total comprometido en cuotas (desde ${nombreMes(mesActivo)})</span></div>
@@ -401,7 +319,7 @@ function renderAjustes(){
         <button class="del" data-t="delcuota" data-i="${i}">🗑</button></div></div>`).join("");
 
   $("content").innerHTML =
-    `<div class="panel"><p class="ptitle">💵 Ingreso mensual</p><input type="number" id="aj-sueldo" value="${config.sueldo}"></div>
+    `<div class="panel"><p class="ptitle">💵 Ingreso mensual</p><input type="number" id="aj-sueldo" value="${config.sueldo}" placeholder="Tu sueldo ($)"></div>
      <div class="panel"><p class="ptitle">➕ Gasto variable (puntual)</p>
        <div class="grid">
          <input class="full" type="number" inputmode="decimal" id="v-monto" placeholder="Monto ($)">
@@ -411,12 +329,12 @@ function renderAjustes(){
          <input type="text" id="v-desc" placeholder="Descripción">
          <button class="btn btn-add full" id="v-add">＋ Agregar gasto variable</button>
        </div></div>
-     <div class="panel"><p class="ptitle">📌 Gastos fijos (precio con vigencia)</p>${fijosRows}
+     <div class="panel"><p class="ptitle">📌 Gastos fijos (precio con vigencia)</p>${fijosRows||'<div class="empty" style="padding:8px">Todavía no cargaste fijos.</div>'}
        <button class="btn btn-ghost" id="add-fijo" style="margin-top:4px">＋ Agregar fijo</button></div>
-     <div class="panel"><p class="ptitle">💳 Cuotas</p>${cuotaRows}
+     <div class="panel"><p class="ptitle">💳 Cuotas</p>${cuotaRows||'<div class="empty" style="padding:8px">Todavía no cargaste cuotas.</div>'}
        <button class="btn btn-ghost" id="add-cuota" style="margin-top:4px">＋ Agregar cuota</button></div>
      <div class="panel"><p class="ptitle">⚙️ Datos</p>
-       <button class="btn btn-ghost danger" id="reset">↺ Restablecer a los valores cargados</button></div>`;
+       <button class="btn btn-ghost danger" id="reset">↺ Borrar todo y empezar de cero</button></div>`;
 
   $("aj-sueldo").onchange = e=>{ config.sueldo=parseFloat(e.target.value)||0; persistC(); render(); };
   $("content").querySelectorAll("[data-t='fijo'],[data-t='cuota']").forEach(el=>{
@@ -431,9 +349,9 @@ function renderAjustes(){
   });
   $("content").querySelectorAll("[data-t='delfijo']").forEach(b=>b.onclick=()=>{ config.fijos.splice(+b.dataset.i,1); persistC(); render(); });
   $("content").querySelectorAll("[data-t='delcuota']").forEach(b=>b.onclick=()=>{ config.cuotas.splice(+b.dataset.i,1); persistC(); render(); });
-  $("add-fijo").onclick=()=>{ config.fijos.push({n:"Nuevo fijo",cat:"Otros",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
+  $("add-fijo").onclick=()=>{ config.fijos.push({n:"Nuevo fijo",cat:"Servicios",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
   $("add-cuota").onclick=()=>{ config.cuotas.push({n:"Nueva compra",f:"Visa",c:1,t:3,m:0,d:mesActivo}); persistC(); render(); };
-  $("reset").onclick=()=>{ if(confirm("¿Restablecer sueldo, fijos y cuotas a los valores originales? (No borra tus gastos variables)")){ config=SEED(); persistC(); render(); } };
+  $("reset").onclick=()=>{ if(confirm("¿Borrar TODOS tus datos (sueldo, fijos, cuotas y movimientos) y empezar de cero?")){ config=SEED(); mov=MOV_SEED(); persistC(); persistM(); mesActivo=ymNow(); render(); } };
 
   $("v-add").onclick=()=>{
     const monto=parseFloat(String($("v-monto").value).replace(",","."));
@@ -462,7 +380,7 @@ $("nextMonth").onclick=()=>{ mesActivo=ymAdd(mesActivo,1); render(); };
 $("exportBtn").onclick=exportar;
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ vista=t.dataset.v; render(); });
 
-// Botón flotante + modal de carga rápida de gasto variable
+// Botón flotante + modal de carga rápida
 $("q-cat").innerHTML = CATS.map(c=>`<option>${c}</option>`).join("");
 $("q-medio").innerHTML = MEDIOS.map(m=>`<option>${m}</option>`).join("");
 function abrirModal(){ $("q-fecha").value=hoy(); $("modal").classList.add("open"); $("q-monto").focus(); }
