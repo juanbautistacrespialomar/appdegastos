@@ -116,7 +116,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v4 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v5 · tus datos se guardan en este dispositivo.</p>
 
   <button id="fab" title="Cargar gasto variable">＋</button>
 
@@ -137,13 +137,15 @@
 
 <script>
 "use strict";
-const CATS = ["Comida","Transporte","Salidas/Asados","Hogar","Servicios","Suscripciones","Salud","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Impuestos","Alquiler","Cuotas","Otros"];
+const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
-const COLORES = { "Comida":"#22c55e","Transporte":"#3b82f6","Salidas/Asados":"#f59e0b","Hogar":"#fb923c","Servicios":"#06b6d4","Suscripciones":"#6366f1","Salud":"#ec4899","Ocio":"#fb7185","Educación":"#0ea5e9","Ropa":"#d946ef","Viajes":"#eab308","Mascotas":"#b45309","Regalos":"#f43f5e","Gimnasio":"#84cc16","Impuestos":"#94a3b8","Alquiler":"#14b8a6","Cuotas":"#a855f7","Otros":"#64748b" };
+const TARJETAS = ["Visa","Mastercard","MercadoPago"];
+const COLORES = { "Comida":"#22c55e","Transporte":"#3b82f6","Salidas/Comidas":"#f59e0b","Salidas/Asados":"#f59e0b","Hogar":"#fb923c","Mantenimiento":"#ca8a04","Servicios":"#06b6d4","Suscripciones":"#6366f1","Salud":"#ec4899","Cuidado personal":"#f472b6","Ocio":"#fb7185","Educación":"#0ea5e9","Ropa":"#d946ef","Viajes":"#eab308","Mascotas":"#b45309","Regalos":"#f43f5e","Gimnasio":"#84cc16","Tecnología":"#0284c7","Niños":"#fbbf24","Impuestos":"#94a3b8","Alquiler":"#14b8a6","Cuotas":"#a855f7","Otros":"#64748b" };
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const MC = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
 function ymNow(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function tarjetaLabel(f){ return "💳 " + (f==="MercadoPago"?"Mercado Pago":f); }
 
 function SEED() { return { v:3, ingresos:[{n:"Sueldo", hist:[{d:ymNow(), m:0}]}], fijos:[], cuotas:[] }; }
 function MOV_SEED() { return []; }
@@ -154,6 +156,7 @@ function load(k,def){ try{const r=localStorage.getItem(k); return r?JSON.parse(r
 function save(k,v){ mem[k]=v; try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 
 function parseMonto(v){ v=String(v).trim(); if(!v) return NaN; if(v.indexOf(",")>=0) v=v.replace(/\./g,"").replace(",","."); return parseFloat(v); }
+function migrarCat(c){ return c==="Salidas/Asados" ? "Salidas/Comidas" : c; }
 
 function normConfig(c){
   if(!c||typeof c!=="object") return SEED();
@@ -167,10 +170,10 @@ function normConfig(c){
   c.ingresos.forEach(g=>{ if(!Array.isArray(g.hist)) g.hist=[{d:ymNow(), m:(g.m||0)}]; if(!g.n) g.n="Ingreso"; });
   if(!Array.isArray(c.fijos)) c.fijos=[];
   if(!Array.isArray(c.cuotas)) c.cuotas=[];
-  c.fijos.forEach(f=>{ if(!f.hist){ f.hist=[{d:(c.desde||ymNow()),m:(f.m||0)}]; delete f.m; } if(!f.cat) f.cat="Otros"; });
+  c.fijos.forEach(f=>{ if(!f.hist){ f.hist=[{d:(c.desde||ymNow()),m:(f.m||0)}]; delete f.m; } if(!f.cat) f.cat="Otros"; f.cat=migrarCat(f.cat); });
   return c;
 }
-function normMov(m){ if(!Array.isArray(m)) return []; m.forEach(x=>{ if(!x.medio) x.medio="—"; if(!x.categoria) x.categoria="Otros"; if(typeof x.monto!=="number") x.monto=parseMonto(x.monto)||0; }); return m; }
+function normMov(m){ if(!Array.isArray(m)) return []; m.forEach(x=>{ if(!x.medio) x.medio="—"; if(!x.categoria) x.categoria="Otros"; x.categoria=migrarCat(x.categoria); if(typeof x.monto!=="number") x.monto=parseMonto(x.monto)||0; }); return m; }
 
 let config = load(CKEY,null); config = config? normConfig(config) : SEED(); save(CKEY,config);
 let mov = load(MKEY,null); mov = (mov===null)? MOV_SEED() : normMov(mov); save(MKEY,mov);
@@ -180,6 +183,7 @@ let colapsado={};
 let colCuotas={};
 let editId=null;
 let oculto=false;
+let fTexto="", fCat="__todas", fMedio="__todos";
 
 const $ = id => document.getElementById(id);
 const fmt = n => oculto ? "$ •••••" : new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0}).format(Math.round(n)||0);
@@ -192,7 +196,6 @@ function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",
 function persistC(){ save(CKEY,config); } function persistM(){ save(MKEY,mov); }
 function histLabel(d){ return MC[(+d.split("-")[1])-1]+" '"+d.slice(2,4); }
 
-// Monto vigente por fecha (para ingresos y fijos): toma el último cambio con fecha <= mes
 function montoVigente(hist, ym){ let best=null; (hist||[]).forEach(h=>{ if(h.d<=ym && (!best||h.d>best.d)) best=h; }); return best?best.m:0; }
 function setVig(obj, desde, monto){ if(!obj.hist) obj.hist=[]; const ex=obj.hist.find(h=>h.d===desde); if(ex) ex.m=monto; else obj.hist.push({d:desde,m:monto}); obj.hist.sort((a,b)=>a.d.localeCompare(b.d)); persistC(); render(); }
 
@@ -282,12 +285,17 @@ function fila(nombre,meta,monto,color,delId,editId){
 function grupoCuotas(lista){
   const gc={}; lista.forEach(q=>{ (gc[q.fuente]=gc[q.fuente]||[]).push(q); });
   let h="";
-  ["Visa","MercadoPago"].forEach(f=>{ const items=gc[f]; if(!items||!items.length) return;
-    const sub=items.reduce((s,x)=>s+x.monto,0); const lab=f==="Visa"?"💳 Visa":"💳 Mercado Pago"; const col=colCuotas[f]===true;
+  TARJETAS.forEach(f=>{ const items=gc[f]; if(!items||!items.length) return;
+    const sub=items.reduce((s,x)=>s+x.monto,0); const col=colCuotas[f]===true;
     h+=`<div class="item fgroup-c" data-card="${f}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
           <span class="bar" style="background:#a855f7"></span>
-          <div class="desc">${col?'▸':'▾'} ${lab} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
+          <div class="desc">${col?'▸':'▾'} ${tarjetaLabel(f)} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
         <span class="amt">${fmt(sub)}</span></div>`;
+    if(!col) h+= items.map(q=>`<div class="sub">`+fila(q.nombre, "", q.monto, "#a855f7")+`</div>`).join("");
+  });
+  // tarjetas que no estén en la lista estándar
+  Object.keys(gc).filter(f=>!TARJETAS.includes(f)).forEach(f=>{ const items=gc[f]; const sub=items.reduce((s,x)=>s+x.monto,0); const col=colCuotas[f]===true;
+    h+=`<div class="item fgroup-c" data-card="${esc(f)}"><div style="display:flex;align-items:center;gap:10px;min-width:0"><span class="bar" style="background:#a855f7"></span><div class="desc">${col?'▸':'▾'} 💳 ${esc(f)} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div><span class="amt">${fmt(sub)}</span></div>`;
     if(!col) h+= items.map(q=>`<div class="sub">`+fila(q.nombre, "", q.monto, "#a855f7")+`</div>`).join("");
   });
   return h;
@@ -299,7 +307,7 @@ function renderMov(c){
     const q=fTexto.trim().toLowerCase();
     let items=[];
     c.fijos.forEach(f=>items.push({nombre:f.nombre, categoria:f.cat, medio:"", monto:f.monto, tipo:"Fijo", color:COLORES[f.cat]||"#f59e0b"}));
-    c.cuotas.forEach(x=>items.push({nombre:x.nombre, categoria:"Cuotas", medio:"", monto:x.monto, tipo:(x.fuente==="Visa"?"Visa":"Mercado Pago"), color:"#a855f7"}));
+    c.cuotas.forEach(x=>items.push({nombre:x.nombre, categoria:"Cuotas", medio:"", monto:x.monto, tipo:tarjetaLabel(x.fuente).replace("💳 ",""), color:"#a855f7"}));
     c.variables.forEach(v=>items.push({nombre:v.descripcion||v.categoria, categoria:v.categoria, medio:v.medio, monto:v.monto, tipo:"Variable", color:COLORES[v.categoria]||"#64748b", id:v.id, fecha:v.fecha}));
     const res=items.filter(it=>{
       if(fCat!=="__todas" && it.categoria!==fCat) return false;
@@ -337,11 +345,10 @@ function renderMov(c){
 }
 
 function renderCuotas(){
-  // Solo cuotas ACTIVAS en el mes (las que arrancan más adelante no aparecen aún)
   function bloque(fuente, etiqueta){
     const items = config.cuotas.filter(q=>q.f===fuente).map(q=>{
       const k=ymDiff(q.d,mesActivo);
-      if(k<0 || k>(q.t-q.c)) return null;        // no arrancó o ya terminó -> no se muestra
+      if(k<0 || k>(q.t-q.c)) return null;
       return {q, actual:(q.c+k)+"/"+q.t, rest:(q.t-q.c)-k+1, total:((q.t-q.c)-k+1)*q.m};
     }).filter(Boolean);
     if(!items.length) return "";
@@ -355,7 +362,7 @@ function renderCuotas(){
     return h;
   }
   const totalRest = config.cuotas.reduce((s,q)=>{ const k=ymDiff(q.d,mesActivo); if(k<0||k>(q.t-q.c)) return s; return s+((q.t-q.c)-k+1)*q.m; },0);
-  const cuerpo = bloque("Visa","💳 Visa") + bloque("MercadoPago","💳 Mercado Pago");
+  const cuerpo = TARJETAS.map(f=>bloque(f, tarjetaLabel(f))).join("");
   $("content").innerHTML =
     `<div class="panel" style="padding:12px 14px"><span style="color:var(--muted);font-size:13px">Total comprometido en cuotas (desde ${nombreMes(mesActivo)})</span>
        <div style="font-size:22px;font-weight:700;color:var(--violet);margin-top:4px">${fmt(totalRest)}</div></div>`
@@ -364,6 +371,7 @@ function renderCuotas(){
 
 function renderAjustes(){
   const catOpts = sel => CATS.map(c=>`<option ${c===sel?"selected":""}>${c}</option>`).join("");
+  const tarjOpts = sel => TARJETAS.map(f=>`<option value="${f}" ${f===sel?"selected":""}>${f==="MercadoPago"?"Mercado Pago":f}</option>`).join("");
   const ingRows = config.ingresos.map((g,i)=>{
     const m=montoVigente(g.hist,mesActivo);
     const histTxt=(g.hist&&g.hist.length>1)?`<div class="hist">Historial: ${g.hist.map(h=>histLabel(h.d)+": $"+fmtN(h.m)).join(" · ")}</div>`:"";
@@ -388,8 +396,7 @@ function renderAjustes(){
   }).join("");
   const cuotaRows = config.cuotas.map((q,i)=>`<div class="crow">
       <div class="full"><label>Detalle</label><input class="mini" data-t="cuota" data-i="${i}" data-k="n" value="${esc(q.n)}"></div>
-      <div><label>Tarjeta</label><select class="mini" data-t="cuota" data-i="${i}" data-k="f">
-        <option ${q.f==="Visa"?"selected":""}>Visa</option><option ${q.f==="MercadoPago"?"selected":""}>MercadoPago</option></select></div>
+      <div><label>Tarjeta</label><select class="mini" data-t="cuota" data-i="${i}" data-k="f">${tarjOpts(q.f)}</select></div>
       <div><label>$ por cuota</label><input class="mini" type="text" inputmode="decimal" data-t="cuota" data-i="${i}" data-k="m" value="${q.m}"></div>
       <div><label>Cuota en ${histLabel(q.d)}</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="c" value="${q.c}"></div>
       <div><label>Total cuotas</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="t" value="${q.t}"></div>
@@ -490,7 +497,6 @@ $("exportBtn").onclick=exportar;
 $("eyeBtn").onclick=()=>{ oculto=!oculto; render(); };
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ vista=t.dataset.v; render(); });
 
-let fTexto="", fCat="__todas", fMedio="__todos";
 $("q-cat").innerHTML = CATS.map(c=>`<option>${c}</option>`).join("");
 $("q-medio").innerHTML = MEDIOS.map(m=>`<option>${m}</option>`).join("");
 $("f-cat").innerHTML = `<option value="__todas">Todas las categorías</option>` + CATS.map(c=>`<option value="${c}">${c}</option>`).join("");
