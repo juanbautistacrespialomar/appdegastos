@@ -182,7 +182,7 @@ let vista="resumen";
 let mesActivo=ymNow();
 let colapsado={};
 let colCuotas={};
-let ajFold={ing:false,fijos:false,cuotas:false};
+let ajFold={ing:true,fijos:true,cuotas:true};
 let editId=null;
 let oculto=false;
 let fTexto="", fCat="__todas", fMedio="__todos";
@@ -402,7 +402,7 @@ function renderAjustes(){
       <div><label>Total cuotas</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="t" value="${q.t}"></div>
       <div><label>Cuota en ${histLabel(q.d)}</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="c" value="${q.c}"></div>
       <div><label>Total de la compra ($)</label><input class="mini" type="text" inputmode="decimal" data-ctotal="${i}" value="${q.tot||''}"></div>
-      <div style="display:flex;gap:6px;align-items:flex-end"><div style="flex:1"><label>$ por cuota (automático)</label><input class="mini" type="text" value="${fmtN(q.m||0)}" readonly tabindex="-1" style="opacity:.55;background:var(--card);cursor:not-allowed"></div>
+      <div style="display:flex;gap:6px;align-items:flex-end"><div style="flex:1"><label>$ por cuota</label><input class="mini" type="text" value="${fmtN(q.m||0)}" readonly tabindex="-1" style="opacity:.55;background:var(--card);cursor:not-allowed"></div>
         <button class="del" data-t="delcuota" data-i="${i}">🗑</button></div></div>`).join("");
 
   $("content").innerHTML =
