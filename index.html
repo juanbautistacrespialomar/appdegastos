@@ -17,8 +17,8 @@
     --txt:#f1f5f9; --muted:#64748b; --green:#10b981; --amber:#f59e0b; --sky:#38bdf8; --red:#f87171; --violet:#a855f7;
   }
   html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-  body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
-  .wrap { max-width:600px; margin:0 auto; padding:16px 16px calc(84px + env(safe-area-inset-bottom)); }
+  body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; align-items:center; }
+  .wrap { width:100%; max-width:600px; margin:0 auto; flex:1 0 auto; box-sizing:border-box; padding:16px 16px calc(84px + env(safe-area-inset-bottom)); }
   .row { display:flex; align-items:center; }
   .between { justify-content:space-between; }
   h1 { font-size:20px; margin:0; }
