@@ -38,11 +38,15 @@
   .s .l { font-size:10px; color:var(--muted); display:flex; align-items:center; gap:4px; }
   .s .v { font-size:13px; font-weight:600; margin-top:2px; }
   .bottomnav { position:fixed; left:0; right:0; bottom:0; z-index:50; background:var(--card2); border-top:1px solid var(--border); padding-bottom:env(safe-area-inset-bottom); }
-  .bottomnav-inner { max-width:600px; margin:0 auto; display:flex; }
-  .tab { flex:1; position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 4px 8px; background:none; border:none; cursor:pointer; color:var(--muted); font:inherit; font-size:10px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; transition:color .15s; }
+  .bottomnav-inner { max-width:600px; margin:0 auto; display:flex; position:relative; }
+  .tab { flex:1; position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 4px 8px; background:none; border:none; cursor:pointer; color:var(--muted); font:inherit; font-size:10px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; transition:color .25s; }
   .tab svg { width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .tab.active { color:var(--amber); }
-  .tab.active::before { content:""; position:absolute; top:0; left:50%; transform:translateX(-50%); width:42px; height:3px; border-radius:0 0 3px 3px; background:var(--amber); }
+  .tabind { position:absolute; top:0; left:0; width:25%; height:3px; display:flex; justify-content:center; transition:transform .32s cubic-bezier(.34,1.4,.5,1); pointer-events:none; }
+  .tabind::before { content:""; width:42px; height:3px; border-radius:0 0 3px 3px; background:var(--amber); }
+  @keyframes tabpop { 0%{transform:scale(1)} 40%{transform:scale(1.28)} 100%{transform:scale(1)} }
+  @keyframes viewin { from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none} }
+  @media (prefers-reduced-motion: reduce){ .tabind{transition:none} .tab svg{animation:none !important} #content{animation:none !important} }
   .panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px; }
   .panel .ptitle { font-size:14px; font-weight:600; color:#cbd5e1; margin:0 0 10px; }
   .legend-row { display:flex; align-items:center; justify-content:space-between; font-size:14px; padding:4px 0; }
@@ -138,6 +142,7 @@
     <button class="tab" data-v="mov"><svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span>Movim.</span></button>
     <button class="tab" data-v="cuotas"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><span>Cuotas</span></button>
     <button class="tab" data-v="ajustes"><svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="10" y1="8" x2="14" y2="8"/><line x1="18" y1="16" x2="22" y2="16"/></svg><span>Ajustes</span></button>
+    <div class="tabind" id="tabInd"></div>
   </div>
 </nav>
 
@@ -185,6 +190,7 @@ function normMov(m){ if(!Array.isArray(m)) return []; m.forEach(x=>{ if(!x.medio
 let config = load(CKEY,null); config = config? normConfig(config) : SEED(); save(CKEY,config);
 let mov = load(MKEY,null); mov = (mov===null)? MOV_SEED() : normMov(mov); save(MKEY,mov);
 let vista="resumen";
+let vistaPrev="resumen";
 let mesActivo=ymNow();
 let colapsado={};
 let colCuotas={};
@@ -245,7 +251,9 @@ function render(){
   $("monthLabel").textContent = nombreMes(mesActivo);
   $("eyeBtn").textContent = oculto ? "🙈" : "👁";
   $("filtros").style.display = vista==="mov" ? "" : "none";
+  const _orden=["resumen","mov","cuotas","ajustes"], _idx=_orden.indexOf(vista), _cambioVista=vista!==vistaPrev;
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.v===vista));
+  if(_idx>=0) $("tabInd").style.transform="translateX("+(_idx*100)+"%)";
   const c = computeMes(mesActivo);
 
   $("cards").innerHTML =
@@ -261,6 +269,13 @@ function render(){
   else if(vista==="mov") renderMov(c);
   else if(vista==="cuotas") renderCuotas();
   else renderAjustes();
+
+  if(_cambioVista){
+    const _ic=document.querySelector(".tab.active svg");
+    if(_ic){ _ic.style.animation="none"; void _ic.offsetWidth; _ic.style.animation="tabpop .35s ease"; }
+    const _ct=$("content"); _ct.style.animation="none"; void _ct.offsetWidth; _ct.style.animation="viewin .28s ease";
+  }
+  vistaPrev=vista;
 
   $("content").querySelectorAll(".del-mov").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); if(confirm("¿Borrar este gasto?")){ mov=mov.filter(x=>x.id!==b.dataset.id); persistM(); render(); } });
   $("content").querySelectorAll(".var-row").forEach(el=>el.onclick=(e)=>{ if(e.target.closest(".del")) return; abrirModalEdit(el.dataset.edit); });
