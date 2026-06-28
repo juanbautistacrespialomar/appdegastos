@@ -116,7 +116,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v5 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v6 · tus datos se guardan en este dispositivo.</p>
 
   <button id="fab" title="Cargar gasto variable">＋</button>
 
@@ -285,17 +285,13 @@ function fila(nombre,meta,monto,color,delId,editId){
 function grupoCuotas(lista){
   const gc={}; lista.forEach(q=>{ (gc[q.fuente]=gc[q.fuente]||[]).push(q); });
   let h="";
-  TARJETAS.forEach(f=>{ const items=gc[f]; if(!items||!items.length) return;
-    const sub=items.reduce((s,x)=>s+x.monto,0); const col=colCuotas[f]===true;
-    h+=`<div class="item fgroup-c" data-card="${f}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
+  const orden = TARJETAS.concat(Object.keys(gc).filter(f=>!TARJETAS.includes(f)));
+  orden.forEach(f=>{ const items=gc[f]; if(!items||!items.length) return;
+    const sub=items.reduce((s,x)=>s+x.monto,0); const col=colCuotas[f]!==true;
+    h+=`<div class="item fgroup-c" data-card="${esc(f)}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
           <span class="bar" style="background:#a855f7"></span>
           <div class="desc">${col?'▸':'▾'} ${tarjetaLabel(f)} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
         <span class="amt">${fmt(sub)}</span></div>`;
-    if(!col) h+= items.map(q=>`<div class="sub">`+fila(q.nombre, "", q.monto, "#a855f7")+`</div>`).join("");
-  });
-  // tarjetas que no estén en la lista estándar
-  Object.keys(gc).filter(f=>!TARJETAS.includes(f)).forEach(f=>{ const items=gc[f]; const sub=items.reduce((s,x)=>s+x.monto,0); const col=colCuotas[f]===true;
-    h+=`<div class="item fgroup-c" data-card="${esc(f)}"><div style="display:flex;align-items:center;gap:10px;min-width:0"><span class="bar" style="background:#a855f7"></span><div class="desc">${col?'▸':'▾'} 💳 ${esc(f)} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div><span class="amt">${fmt(sub)}</span></div>`;
     if(!col) h+= items.map(q=>`<div class="sub">`+fila(q.nombre, "", q.monto, "#a855f7")+`</div>`).join("");
   });
   return h;
@@ -353,7 +349,7 @@ function renderCuotas(){
     }).filter(Boolean);
     if(!items.length) return "";
     const sub = items.reduce((s,x)=>s+x.total,0);
-    const col = colCuotas[fuente]===true;
+    const col = colCuotas[fuente]!==true;
     let h=`<div class="item fgroup-c" data-card="${fuente}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
         <span class="bar" style="background:#a855f7"></span>
         <div class="desc">${col?'▸':'▾'} ${etiqueta} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
@@ -376,7 +372,7 @@ function renderAjustes(){
     const m=montoVigente(g.hist,mesActivo);
     const histTxt=(g.hist&&g.hist.length>1)?`<div class="hist">Historial: ${g.hist.map(h=>histLabel(h.d)+": $"+fmtN(h.m)).join(" · ")}</div>`:"";
     return `<div class="crow">
-      <div class="full"><label>Nombre del ingreso</label><input class="mini" data-t="ingreso" data-i="${i}" data-k="n" value="${esc(g.n)}"></div>
+      <div class="full"><label>Nombre del ingreso</label><input class="mini" data-t="ingreso" data-i="${i}" data-k="n" value="${esc(g.n)}" placeholder="Ej: Sueldo, Freelance…"></div>
       <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini" type="text" inputmode="decimal" data-imonto="${i}" value="${m}"></div>
       <div style="display:flex;gap:6px;align-items:flex-end"><div style="flex:1"><label>Aplicar desde</label><input class="mini" type="month" data-idesde="${i}" value="${mesActivo}"></div>
         <button class="del" data-t="deling" data-i="${i}">🗑</button></div>
@@ -386,7 +382,7 @@ function renderAjustes(){
     const montoActual = montoVigente(f.hist, mesActivo);
     const histTxt = (f.hist&&f.hist.length>1)? `<div class="hist">Historial: ${f.hist.map(h=>histLabel(h.d)+": $"+fmtN(h.m)).join(" · ")}</div>` : "";
     return `<div class="crow">
-      <div class="full"><label>Gasto fijo</label><input class="mini" data-t="fijo" data-i="${i}" data-k="n" value="${esc(f.n)}"></div>
+      <div class="full"><label>Gasto fijo</label><input class="mini" data-t="fijo" data-i="${i}" data-k="n" value="${esc(f.n)}" placeholder="Ej: Alquiler, Luz, Netflix…"></div>
       <div><label>Categoría</label><select class="mini" data-t="fijo" data-i="${i}" data-k="cat">${catOpts(f.cat)}</select></div>
       <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini" type="text" inputmode="decimal" data-fmonto="${i}" value="${montoActual}"></div>
       <div class="full" style="display:flex;gap:6px;align-items:center"><label style="flex:1">Aplicar cambio desde</label>
@@ -395,13 +391,13 @@ function renderAjustes(){
       ${histTxt}</div>`;
   }).join("");
   const cuotaRows = config.cuotas.map((q,i)=>`<div class="crow">
-      <div class="full"><label>Detalle</label><input class="mini" data-t="cuota" data-i="${i}" data-k="n" value="${esc(q.n)}"></div>
+      <div class="full"><label>Detalle</label><input class="mini" data-t="cuota" data-i="${i}" data-k="n" value="${esc(q.n)}" placeholder="Ej: Heladera, Zapatillas…"></div>
       <div><label>Tarjeta</label><select class="mini" data-t="cuota" data-i="${i}" data-k="f">${tarjOpts(q.f)}</select></div>
-      <div><label>$ por cuota</label><input class="mini" type="text" inputmode="decimal" data-t="cuota" data-i="${i}" data-k="m" value="${q.m}"></div>
-      <div><label>Cuota en ${histLabel(q.d)}</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="c" value="${q.c}"></div>
+      <div><label>Mes 1ª cuota</label><input class="mini" type="month" data-t="cuota" data-i="${i}" data-k="d" value="${q.d}"></div>
       <div><label>Total cuotas</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="t" value="${q.t}"></div>
-      <div class="full" style="display:flex;gap:6px;align-items:center"><label style="flex:1">Mes 1ª cuota</label>
-        <input class="mini" type="month" style="width:140px" data-t="cuota" data-i="${i}" data-k="d" value="${q.d}">
+      <div><label>Cuota en ${histLabel(q.d)}</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="c" value="${q.c}"></div>
+      <div><label>💡 Total de la compra ($)</label><input class="mini" type="text" inputmode="decimal" data-ctotal="${i}" value="${q.tot||''}" placeholder="opcional, divide solo"></div>
+      <div style="display:flex;gap:6px;align-items:flex-end"><div style="flex:1"><label>$ por cuota</label><input class="mini" type="text" inputmode="decimal" data-t="cuota" data-i="${i}" data-k="m" value="${q.m}"></div>
         <button class="del" data-t="delcuota" data-i="${i}">🗑</button></div></div>`).join("");
 
   $("content").innerHTML =
@@ -421,8 +417,18 @@ function renderAjustes(){
   $("content").querySelectorAll("[data-t='ingreso'],[data-t='fijo'],[data-t='cuota']").forEach(el=>{
     el.onchange = ()=>{ const i=+el.dataset.i,k=el.dataset.k,t=el.dataset.t;
       let val = (el.inputMode==="decimal")? (parseMonto(el.value)||0) : (el.type==="number"? (parseFloat(el.value)||0) : el.value);
-      if(t==="ingreso") config.ingresos[i][k]=val; else if(t==="fijo") config.fijos[i][k]=val; else config.cuotas[i][k]=val;
+      if(t==="ingreso") config.ingresos[i][k]=val;
+      else if(t==="fijo") config.fijos[i][k]=val;
+      else { config.cuotas[i][k]=val;
+        if(k==="m") delete config.cuotas[i].tot;
+        if(k==="t" && config.cuotas[i].tot) config.cuotas[i].m = (val>0)? Math.round(config.cuotas[i].tot/val):0;
+      }
       persistC(); render(); };
+  });
+  $("content").querySelectorAll("[data-ctotal]").forEach(el=>{
+    el.onchange=()=>{ const i=+el.dataset.ctotal; const tot=parseMonto(el.value); const t=config.cuotas[i].t||0;
+      if(!tot||tot<=0){ delete config.cuotas[i].tot; persistC(); render(); return; }
+      config.cuotas[i].tot=tot; config.cuotas[i].m=(t>0)?Math.round(tot/t):0; persistC(); render(); };
   });
   $("content").querySelectorAll("[data-imonto]").forEach(el=>{
     el.onchange=()=>{ const i=+el.dataset.imonto; const dEl=$("content").querySelector("[data-idesde='"+i+"']");
@@ -435,9 +441,9 @@ function renderAjustes(){
   $("content").querySelectorAll("[data-t='deling']").forEach(b=>b.onclick=()=>{ config.ingresos.splice(+b.dataset.i,1); persistC(); render(); });
   $("content").querySelectorAll("[data-t='delfijo']").forEach(b=>b.onclick=()=>{ config.fijos.splice(+b.dataset.i,1); persistC(); render(); });
   $("content").querySelectorAll("[data-t='delcuota']").forEach(b=>b.onclick=()=>{ config.cuotas.splice(+b.dataset.i,1); persistC(); render(); });
-  $("add-ing").onclick=()=>{ config.ingresos.push({n:"Nuevo ingreso",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
-  $("add-fijo").onclick=()=>{ config.fijos.push({n:"Nuevo fijo",cat:"Servicios",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
-  $("add-cuota").onclick=()=>{ config.cuotas.push({n:"Nueva compra",f:"Visa",c:1,t:6,m:0,d:mesActivo}); persistC(); render(); };
+  $("add-ing").onclick=()=>{ config.ingresos.push({n:"",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
+  $("add-fijo").onclick=()=>{ config.fijos.push({n:"",cat:"Servicios",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
+  $("add-cuota").onclick=()=>{ config.cuotas.push({n:"",f:"Visa",c:1,t:6,m:0,d:mesActivo}); persistC(); render(); };
   $("reset").onclick=()=>{ if(confirm("¿Borrar TODOS tus datos y empezar de cero?")){ config=SEED(); mov=MOV_SEED(); persistC(); persistM(); mesActivo=ymNow(); render(); } };
   $("backup").onclick=()=>{
     const data={ app:"MisGastos", fecha:new Date().toISOString(), config, mov };
