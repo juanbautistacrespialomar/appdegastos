@@ -9,7 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Mis Gastos">
-<link rel="apple-touch-icon" href="Logo.png">
+<link rel="apple-touch-icon" href="icon-512.png">
 <link rel="manifest" href="manifest.json">
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -94,6 +94,7 @@
   <div class="row between header">
     <div class="row" style="gap:8px"><span style="font-size:22px">💰</span><h1>Mis Gastos</h1></div>
     <div class="row" style="gap:8px">
+      <button class="btn btn-ghost" id="installBtn" style="display:none" title="Instalar app">⬇ Instalar</button>
       <button class="btn btn-ghost" id="eyeBtn" title="Ocultar/mostrar importes">👁</button>
       <button class="btn btn-ghost" id="exportBtn">⤓ Exportar</button>
     </div>
@@ -573,6 +574,42 @@ $("q-add").onclick=()=>{
 };
 
 render();
+</script>
+
+<script>
+/* ===== PWA: registro del Service Worker + prompt de instalación ===== */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .catch(err => console.warn("SW no registrado:", err));
+  });
+}
+
+let deferredPrompt = null;
+const installBtn = document.getElementById("installBtn");
+
+// El navegador dispara esto solo si la app es instalable (HTTPS + manifest + SW)
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();            // evitamos el mini-infobar automático
+  deferredPrompt = e;            // guardamos el evento para dispararlo nosotros
+  if (installBtn) installBtn.style.display = "inline-flex";
+});
+
+if (installBtn) {
+  installBtn.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.style.display = "none";
+  });
+}
+
+// Si ya quedó instalada, escondemos el botón
+window.addEventListener("appinstalled", () => {
+  if (installBtn) installBtn.style.display = "none";
+  deferredPrompt = null;
+});
 </script>
 </body>
 </html>
