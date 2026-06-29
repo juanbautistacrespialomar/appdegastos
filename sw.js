@@ -1,13 +1,15 @@
 /* Service Worker — Mis Gastos
-   Estrategia:
-   - Navegación (HTML): network-first con fallback a cache.
-     Así, si hay internet, SIEMPRE servís la última versión deployada
-     y evitás el clásico problema de "cambié el index pero sigue la versión vieja".
-     Offline, cae al cache.
-   - Resto de assets (manifest, ícono): cache-first (cambian poco).
-   Para forzar una actualización limpia, subí el número de versión del cache. */
+   Estrategia v2 (stale-while-revalidate):
+   - Navegación (HTML): servimos YA lo que está en cache (apertura instantánea)
+     y EN PARALELO vamos a la red para actualizar el cache para la PRÓXIMA vez.
+     Esto arregla la lentitud al abrir que daba el network-first anterior, que
+     esperaba la respuesta de la red antes de mostrar absolutamente nada.
+   - Resto de assets (manifest, íconos): cache-first (cambian poco).
+   - URL con ?freshcheck=... → red directa, sin cachear. La usa el aviso de
+     "versión nueva" del index.html para no quedarse pegado a la copia vieja.
+   Para forzar una limpieza total, subí el número de versión del cache (CACHE). */
 
-const CACHE = "mis-gastos-v1";
+const CACHE = "mis-gastos-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -37,21 +39,32 @@ self.addEventListener("activate", e => {
   );
 });
 
-// Fetch: este handler es lo que hace a la app "instalable" para Chrome/Edge
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
 
-  // HTML / navegación → network-first
+  const url = new URL(req.url);
+
+  // Chequeo de versión: nunca del cache, siempre a la red.
+  if (url.searchParams.has("freshcheck")) {
+    e.respondWith(fetch(req).catch(() => new Response("", { status: 504 })));
+    return;
+  }
+
+  // HTML / navegación → stale-while-revalidate (rápido + se actualiza solo)
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req)
-        .then(res => {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(req, copy));
-          return res;
-        })
-        .catch(() => caches.match(req).then(r => r || caches.match("./index.html")))
+      caches.match(req).then(cached => {
+        const red = fetch(req)
+          .then(res => {
+            const copy = res.clone();
+            caches.open(CACHE).then(c => c.put(req, copy)); // refresca para la próxima
+            return res;
+          })
+          .catch(() => cached || caches.match("./index.html"));
+        // Si hay cache, lo devolvemos YA; la red corre en segundo plano.
+        return cached || red;
+      })
     );
     return;
   }

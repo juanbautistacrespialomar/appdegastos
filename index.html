@@ -87,6 +87,8 @@
   .modal-bg.open { display:flex; }
   .modal { background:var(--card); border:1px solid var(--border); border-radius:16px 16px 0 0; padding:16px; width:100%; max-width:600px; }
   @media(min-width:600px){ .modal-bg{ align-items:center; } .modal{ border-radius:16px; } }
+  .toast{ position:fixed; left:50%; bottom:calc(94px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(16px); max-width:88%; text-align:center; background:var(--green); color:#fff; padding:11px 18px; border-radius:999px; font-size:14px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:80; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
 </style>
 </head>
 <body>
@@ -142,14 +144,27 @@
       <select id="q-cat"></select>
       <select id="q-medio"></select>
       <input type="date" id="q-fecha">
-      <input class="full" type="text" id="q-desc" placeholder="Descripción (opcional)">
+      <input class="full" type="text" id="q-desc" placeholder="Descripción (ej: Almuerzo oficina)" list="desc-sugeridas" autocomplete="off">
+      <datalist id="desc-sugeridas"></datalist>
       <button class="btn btn-add full" id="q-add">＋ Agregar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalDet" class="modal-bg">
+  <div class="modal">
+    <div class="row between" style="margin-bottom:10px"><strong>Detalle del gasto</strong><button id="d-close" class="del" style="font-size:20px">✕</button></div>
+    <div id="d-body"></div>
+    <div class="grid" style="margin-top:14px">
+      <button class="btn btn-ghost danger" id="d-del">🗑 Borrar</button>
+      <button class="btn btn-add" id="d-edit">✏️ Editar</button>
     </div>
   </div>
 </div>
 
 <script>
 "use strict";
+const APP_VERSION = "6.1";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -211,6 +226,26 @@ function ymDiff(a,b){ const [ay,am]=a.split("-").map(Number),[by,bm]=b.split("-"
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function persistC(){ save(CKEY,config); } function persistM(){ save(MKEY,mov); }
 function histLabel(d){ return MC[(+d.split("-")[1])-1]+" '"+d.slice(2,4); }
+
+function toast(msg, onClick){
+  let t=$("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast"; t.className="toast"; document.body.appendChild(t); }
+  t.textContent=msg;
+  t.onclick = onClick || null;
+  t.style.cursor = onClick ? "pointer" : "default";
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{ t.classList.remove("show"); }, onClick ? 9000 : 1600);
+}
+
+// Junta las descripciones que YA usaste (de tus movimientos) para el desplegable.
+// Como los datos viven en el localStorage de ESTE dispositivo, solo aparecen las tuyas.
+function poblarSugerencias(){
+  const cont={};
+  mov.forEach(m=>{ const d=(m.descripcion||"").trim(); if(d) cont[d]=(cont[d]||0)+1; });
+  const orden=Object.keys(cont).sort((a,b)=>cont[b]-cont[a]); // las más repetidas primero
+  const dl=$("desc-sugeridas"); if(dl) dl.innerHTML = orden.map(d=>`<option value="${esc(d)}"></option>`).join("");
+}
 
 function montoVigente(hist, ym){ let best=null; (hist||[]).forEach(h=>{ if(h.d<=ym && (!best||h.d>best.d)) best=h; }); return best?best.m:0; }
 function setVig(obj, desde, monto){ if(!obj.hist) obj.hist=[]; const ex=obj.hist.find(h=>h.d===desde); if(ex) ex.m=monto; else obj.hist.push({d:desde,m:monto}); obj.hist.sort((a,b)=>a.d.localeCompare(b.d)); persistC(); render(); }
@@ -280,7 +315,7 @@ function render(){
   vistaPrev=vista;
 
   $("content").querySelectorAll(".del-mov").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); if(confirm("¿Borrar este gasto?")){ mov=mov.filter(x=>x.id!==b.dataset.id); persistM(); render(); } });
-  $("content").querySelectorAll(".var-row").forEach(el=>el.onclick=(e)=>{ if(e.target.closest(".del")) return; abrirModalEdit(el.dataset.edit); });
+  $("content").querySelectorAll(".var-row").forEach(el=>el.onclick=(e)=>{ if(e.target.closest(".del")) return; abrirModalDet(el.dataset.edit); });
   $("content").querySelectorAll(".fgroup").forEach(el=>el.onclick=()=>{ const cat=el.dataset.cat; colapsado[cat] = (colapsado[cat]!==false)? false : true; render(); });
   $("content").querySelectorAll(".fgroup-c").forEach(el=>el.onclick=()=>{ const card=el.dataset.card; colCuotas[card] = (colCuotas[card]===true)? false : true; render(); });
 }
@@ -360,7 +395,7 @@ function renderMov(c){
 
   h+=`<div class="grouphdr"><span>Cuotas</span><span>${fmt(c.tC)}</span></div>`;
   h+= c.cuotas.length? grupoCuotas(c.cuotas) : `<div class="empty">Sin cuotas este mes.</div>`;
-  h+=`<div class="grouphdr"><span>Variables</span><span>${fmt(c.tV)}</span><span style="text-transform:none;letter-spacing:0">tocá para editar</span></div>`;
+  h+=`<div class="grouphdr"><span>Variables</span><span>${fmt(c.tV)}</span><span style="text-transform:none;letter-spacing:0">tocá para ver</span></div>`;
   h+= c.variables.length? c.variables.map(v=>fila(v.descripcion||v.categoria, v.categoria+" · "+v.medio+" · "+v.fecha.slice(8,10)+"/"+v.fecha.slice(5,7), v.monto, COLORES[v.categoria]||"#64748b", v.id, v.id)).join("") : `<div class="empty">Tocá el botón "+" para cargar un gasto.</div>`;
   $("content").innerHTML=h;
 }
@@ -402,7 +437,9 @@ function renderAjustes(){
     return `<div class="crow">
       <div class="full"><label>Nombre del ingreso</label><input class="mini" data-t="ingreso" data-i="${i}" data-k="n" value="${esc(g.n)}" placeholder="Ej: Sueldo, Freelance…"></div>
       <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-imonto="${i}" value="${m}"></div>
-      <div style="display:flex;gap:6px;align-items:flex-end"><div style="flex:1"><label>Aplicar desde</label><input class="mini" type="month" data-idesde="${i}" value="${mesActivo}"></div>
+      <div><label>Aplicar desde</label><input class="mini" type="month" data-idesde="${i}" value="${mesActivo}"></div>
+      <div class="full" style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-add mini" data-saveing="${i}" style="flex:1">💾 Guardar monto</button>
         <button class="del" data-t="deling" data-i="${i}">🗑</button></div>
       ${histTxt}</div>`;
   }).join("");
@@ -413,8 +450,9 @@ function renderAjustes(){
       <div class="full"><label>Gasto fijo</label><input class="mini" data-t="fijo" data-i="${i}" data-k="n" value="${esc(f.n)}" placeholder="Ej: Alquiler, Luz, Netflix…"></div>
       <div><label>Categoría</label><select class="mini" data-t="fijo" data-i="${i}" data-k="cat">${catOpts(f.cat)}</select></div>
       <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-fmonto="${i}" value="${montoActual}"></div>
-      <div class="full" style="display:flex;gap:6px;align-items:center"><label style="flex:1">Aplicar cambio desde</label>
-        <input class="mini" type="month" style="width:140px" data-fdesde="${i}" value="${mesActivo}">
+      <div><label>Aplicar cambio desde</label><input class="mini" type="month" data-fdesde="${i}" value="${mesActivo}"></div>
+      <div class="full" style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-add mini" data-savefijo="${i}" style="flex:1">💾 Guardar monto</button>
         <button class="del" data-t="delfijo" data-i="${i}">🗑</button></div>
       ${histTxt}</div>`;
   }).join("");
@@ -454,15 +492,20 @@ function renderAjustes(){
        <button class="btn btn-ghost danger" id="reset">↺ Borrar todo y empezar de cero</button>
        <p style="font-size:11px;color:var(--muted);margin:8px 0 0">El backup guarda TODO en un archivo. Hacelo cada tanto, por las dudas.</p></div>`;
 
-  $("content").querySelectorAll("[data-t='ingreso'],[data-t='fijo'],[data-t='cuota']").forEach(el=>{
-    el.onchange = ()=>{ const i=+el.dataset.i,k=el.dataset.k,t=el.dataset.t;
-      let val = (el.inputMode==="decimal")? (parseMonto(el.value)||0) : (el.type==="number"? (parseFloat(el.value)||0) : el.value);
-      if(t==="ingreso") config.ingresos[i][k]=val;
-      else if(t==="fijo") config.fijos[i][k]=val;
-      else { config.cuotas[i][k]=val;
-        if(k==="t"){ const tot=config.cuotas[i].tot||0; config.cuotas[i].m=(val>0)?Math.round(tot/val):0; }
-      }
+  // Cuotas: se siguen recalculando al toque (necesitan re-render para mostrar $/cuota).
+  $("content").querySelectorAll("[data-t='cuota']").forEach(el=>{
+    el.onchange = ()=>{ const i=+el.dataset.i,k=el.dataset.k;
+      let val = (el.type==="number"? (parseFloat(el.value)||0) : el.value);
+      config.cuotas[i][k]=val;
+      if(k==="t"){ const tot=config.cuotas[i].tot||0; config.cuotas[i].m=(val>0)?Math.round(tot/val):0; }
       persistC(); render(); };
+  });
+  // Ingresos / Fijos: nombre y categoría se guardan solos SIN re-render (no salta el foco).
+  $("content").querySelectorAll("[data-t='ingreso'],[data-t='fijo']").forEach(el=>{
+    el.onchange = ()=>{ const i=+el.dataset.i,k=el.dataset.k,t=el.dataset.t;
+      if(t==="ingreso") config.ingresos[i][k]=el.value;
+      else config.fijos[i][k]=el.value;
+      persistC(); };
   });
   $("content").querySelectorAll("[data-ctotal]").forEach(el=>{
     el.onchange=()=>{ const i=+el.dataset.ctotal; const tot=parseMonto(el.value); const t=config.cuotas[i].t||0;
@@ -474,13 +517,27 @@ function renderAjustes(){
       const mEl=$("content").querySelector("[data-cmes='"+i+"']"), yEl=$("content").querySelector("[data-canio='"+i+"']");
       config.cuotas[i].d = yEl.value+"-"+String(+mEl.value).padStart(2,"0"); persistC(); render(); };
   });
-  $("content").querySelectorAll("[data-imonto]").forEach(el=>{
-    el.onchange=()=>{ const i=+el.dataset.imonto; const dEl=$("content").querySelector("[data-idesde='"+i+"']");
-      setVig(config.ingresos[i], (dEl&&dEl.value)||mesActivo, parseMonto(el.value)||0); };
+  // Botón Guardar monto — Ingresos (aplica nombre + monto vigente y avisa "Guardado ✓")
+  $("content").querySelectorAll("[data-saveing]").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.saveing;
+    const nEl=$("content").querySelector("input[data-t='ingreso'][data-i='"+i+"'][data-k='n']");
+    const mEl=$("content").querySelector("[data-imonto='"+i+"']");
+    const dEl=$("content").querySelector("[data-idesde='"+i+"']");
+    if(nEl) config.ingresos[i].n = nEl.value.trim() || "Ingreso";
+    setVig(config.ingresos[i], (dEl&&dEl.value)||mesActivo, parseMonto(mEl.value)||0); // persistC + render
+    toast("Ingreso guardado ✓");
   });
-  $("content").querySelectorAll("[data-fmonto]").forEach(el=>{
-    el.onchange = ()=>{ const i=+el.dataset.fmonto; const dEl=$("content").querySelector("[data-fdesde='"+i+"']");
-      setVig(config.fijos[i], (dEl&&dEl.value)||mesActivo, parseMonto(el.value)||0); };
+  // Botón Guardar monto — Fijos (aplica nombre + categoría + monto vigente)
+  $("content").querySelectorAll("[data-savefijo]").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.savefijo;
+    const nEl=$("content").querySelector("input[data-t='fijo'][data-i='"+i+"'][data-k='n']");
+    const cEl=$("content").querySelector("select[data-t='fijo'][data-i='"+i+"'][data-k='cat']");
+    const mEl=$("content").querySelector("[data-fmonto='"+i+"']");
+    const dEl=$("content").querySelector("[data-fdesde='"+i+"']");
+    if(nEl) config.fijos[i].n = nEl.value.trim() || "Gasto fijo";
+    if(cEl) config.fijos[i].cat = cEl.value;
+    setVig(config.fijos[i], (dEl&&dEl.value)||mesActivo, parseMonto(mEl.value)||0); // persistC + render
+    toast("Gasto fijo guardado ✓");
   });
   $("content").querySelectorAll(".fold-aj").forEach(el=>el.onclick=()=>{ const k=el.dataset.fold; ajFold[k]=!ajFold[k]; render(); });
   $("content").querySelectorAll("[data-t='deling']").forEach(b=>b.onclick=()=>{ const i=+b.dataset.i; const nm=(config.ingresos[i]&&config.ingresos[i].n)||"este ingreso"; if(confirm('¿Borrar el ingreso "'+nm+'"?')){ config.ingresos.splice(i,1); persistC(); render(); } });
@@ -514,6 +571,7 @@ function abrirModalAlta(){
   editId=null; $("m-title").textContent="Nuevo gasto variable";
   $("q-monto").value=""; $("q-desc").value=""; $("q-cat").selectedIndex=0; $("q-medio").selectedIndex=0; $("q-fecha").value=hoy();
   $("q-add").textContent="＋ Agregar";
+  poblarSugerencias();
   $("modal").classList.add("open"); $("q-monto").focus();
 }
 function abrirModalEdit(id){
@@ -524,9 +582,31 @@ function abrirModalEdit(id){
   const ms=$("q-medio"); if(![...ms.options].some(o=>o.value===v.medio)) ms.add(new Option(v.medio, v.medio)); ms.value=v.medio;
   $("q-fecha").value=v.fecha; $("q-desc").value=v.descripcion||"";
   $("q-add").textContent="✓ Guardar cambios";
+  poblarSugerencias();
   $("modal").classList.add("open"); $("q-monto").focus();
 }
 function cerrarModal(){ $("modal").classList.remove("open"); editId=null; }
+
+let detId=null;
+function abrirModalDet(id){
+  const v=mov.find(x=>x.id===id); if(!v) return;
+  detId=id;
+  const col=COLORES[v.categoria]||"#64748b";
+  const f=v.fecha;
+  const fechaTxt=f.slice(8,10)+"/"+f.slice(5,7)+"/"+f.slice(0,4);
+  $("d-body").innerHTML=
+    `<div style="text-align:center;margin:4px 0 16px">
+       <div style="font-size:32px;font-weight:700">${fmt(v.monto)}</div>
+       ${v.descripcion?`<div style="color:#cbd5e1;margin-top:6px;font-size:15px">${esc(v.descripcion)}</div>`:'<div style="color:var(--muted);margin-top:6px;font-size:13px">Sin descripción</div>'}
+     </div>
+     <div class="crow" style="grid-template-columns:1fr 1fr;cursor:default">
+       <div><label>Categoría</label><div style="font-size:14px;margin-top:2px"><span class="dot" style="background:${col}"></span>${esc(v.categoria)}</div></div>
+       <div><label>Medio de pago</label><div style="font-size:14px;margin-top:2px">${esc(v.medio||"—")}</div></div>
+       <div class="full"><label>Fecha</label><div style="font-size:14px;margin-top:2px">${fechaTxt}</div></div>
+     </div>`;
+  $("modalDet").classList.add("open");
+}
+function cerrarModalDet(){ $("modalDet").classList.remove("open"); detId=null; }
 
 function exportar(){
   const c=computeMes(mesActivo), sep=";", L=[];
@@ -559,6 +639,10 @@ $("f-clear").onclick=()=>{ fTexto=""; fCat="__todas"; fMedio="__todos"; $("f-tex
 $("fab").onclick=abrirModalAlta;
 $("m-close").onclick=cerrarModal;
 $("modal").onclick=e=>{ if(e.target.id==="modal") cerrarModal(); };
+$("d-close").onclick=cerrarModalDet;
+$("modalDet").onclick=e=>{ if(e.target.id==="modalDet") cerrarModalDet(); };
+$("d-edit").onclick=()=>{ const id=detId; cerrarModalDet(); abrirModalEdit(id); };
+$("d-del").onclick=()=>{ if(detId && confirm("¿Borrar este gasto?")){ mov=mov.filter(x=>x.id!==detId); persistM(); cerrarModalDet(); render(); } };
 $("q-monto").addEventListener("keydown",e=>{ if(e.key==="Enter") $("q-add").click(); });
 $("q-desc").addEventListener("keydown",e=>{ if(e.key==="Enter") $("q-add").click(); });
 $("q-add").onclick=()=>{
@@ -574,6 +658,23 @@ $("q-add").onclick=()=>{
 };
 
 render();
+
+/* ===== Aviso de "versión nueva" (pensado para tu modelo de reemplazar index.html) =====
+   Como ahora el Service Worker abre desde cache (rápido), en segundo plano
+   chequeamos contra la red si subiste una versión más nueva. Si la hay,
+   te aparece un toast tocable para refrescar. Si no hay internet, no molesta. */
+async function chequearUpdate(){
+  try{
+    const res = await fetch("./index.html?freshcheck="+Date.now(), {cache:"no-store"});
+    if(!res.ok) return;
+    const txt = await res.text();
+    const m = txt.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+    if(m && m[1] !== APP_VERSION){
+      toast("Versión nueva ("+m[1]+") — tocá para actualizar", ()=>location.reload());
+    }
+  }catch(e){ /* sin conexión: lo dejamos pasar */ }
+}
+setTimeout(chequearUpdate, 1500);
 </script>
 
 <script>
