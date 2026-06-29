@@ -437,7 +437,7 @@ function renderAjustes(){
     const histTxt=(g.hist&&g.hist.length>1)?`<div class="hist">Historial: ${g.hist.map(h=>histLabel(h.d)+": $"+fmtN(h.m)).join(" · ")}</div>`:"";
     return `<div class="crow">
       <div class="full"><label>Nombre del ingreso</label><input class="mini" data-t="ingreso" data-i="${i}" data-k="n" value="${esc(g.n)}" placeholder="Ej: Sueldo, Freelance…"></div>
-      <div class="full"><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-imonto="${i}" value="${m}"></div>
+      <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-imonto="${i}" value="${m}"></div>
       <div class="full"><label>Aplicar desde</label><input class="mini" type="month" data-idesde="${i}" value="${mesActivo}"></div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
         <button class="btn btn-add mini" data-saveing="${i}" style="flex:1">💾 Guardar monto</button>
