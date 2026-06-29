@@ -67,11 +67,12 @@
   .pin { color:var(--amber); } .pct { color:var(--muted); }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .grid .full { grid-column:1/-1; }
-  input,select { width:100%; background:var(--card2); border:1px solid #334155; border-radius:10px; padding:10px 11px; color:var(--txt); font:inherit; }
+  input,select { width:100%; min-width:0; background:var(--card2); border:1px solid #334155; border-radius:10px; padding:10px 11px; color:var(--txt); font:inherit; }
   input:focus,select:focus { outline:none; border-color:var(--green); }
   .btn-add { background:var(--green); padding:11px; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; gap:6px; }
   .btn-add:active { background:#059669; }
   .crow { display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--card2); border-radius:10px; padding:8px; margin-bottom:8px; }
+  .crow > div { min-width:0; }
   .crow .full { grid-column:1/-1; }
   .crow label { font-size:10px; color:var(--muted); }
   .mini { font-size:11px; padding:7px 8px; }
@@ -436,8 +437,8 @@ function renderAjustes(){
     const histTxt=(g.hist&&g.hist.length>1)?`<div class="hist">Historial: ${g.hist.map(h=>histLabel(h.d)+": $"+fmtN(h.m)).join(" · ")}</div>`:"";
     return `<div class="crow">
       <div class="full"><label>Nombre del ingreso</label><input class="mini" data-t="ingreso" data-i="${i}" data-k="n" value="${esc(g.n)}" placeholder="Ej: Sueldo, Freelance…"></div>
-      <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-imonto="${i}" value="${m}"></div>
-      <div><label>Aplicar desde</label><input class="mini" type="month" data-idesde="${i}" value="${mesActivo}"></div>
+      <div class="full"><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-imonto="${i}" value="${m}"></div>
+      <div class="full"><label>Aplicar desde</label><input class="mini" type="month" data-idesde="${i}" value="${mesActivo}"></div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
         <button class="btn btn-add mini" data-saveing="${i}" style="flex:1">💾 Guardar monto</button>
         <button class="del" data-t="deling" data-i="${i}">🗑</button></div>
@@ -450,7 +451,7 @@ function renderAjustes(){
       <div class="full"><label>Gasto fijo</label><input class="mini" data-t="fijo" data-i="${i}" data-k="n" value="${esc(f.n)}" placeholder="Ej: Alquiler, Luz, Netflix…"></div>
       <div><label>Categoría</label><select class="mini" data-t="fijo" data-i="${i}" data-k="cat">${catOpts(f.cat)}</select></div>
       <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-fmonto="${i}" value="${montoActual}"></div>
-      <div><label>Aplicar cambio desde</label><input class="mini" type="month" data-fdesde="${i}" value="${mesActivo}"></div>
+      <div class="full"><label>Aplicar cambio desde</label><input class="mini" type="month" data-fdesde="${i}" value="${mesActivo}"></div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
         <button class="btn btn-add mini" data-savefijo="${i}" style="flex:1">💾 Guardar monto</button>
         <button class="del" data-t="delfijo" data-i="${i}">🗑</button></div>
