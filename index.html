@@ -2,7 +2,7 @@
 <html lang="es-AR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Mis Gastos</title>
 <meta name="theme-color" content="#020617">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="icon-512.png">
 <link rel="manifest" href="manifest.json">
 <style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   :root {
     --bg:#020617; --card:#0f172a; --card2:#1e293b; --border:#1e293b;
     --txt:#f1f5f9; --muted:#64748b; --green:#10b981; --amber:#f59e0b; --sky:#38bdf8; --red:#f87171; --violet:#a855f7;
@@ -122,7 +122,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v6 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v6.2 · tus datos se guardan en este dispositivo.</p>
 </div>
 
 <nav class="bottomnav">
@@ -145,8 +145,11 @@
       <select id="q-cat"></select>
       <select id="q-medio"></select>
       <input type="date" id="q-fecha">
-      <input class="full" type="text" id="q-desc" placeholder="Descripción (ej: Almuerzo oficina)" list="desc-sugeridas" autocomplete="off">
-      <datalist id="desc-sugeridas"></datalist>
+      <select class="full" id="q-desc-sel">
+        <option value="">— Sin descripción —</option>
+        <option value="__nueva">✏️ Escribir una nueva…</option>
+      </select>
+      <input class="full" type="text" id="q-desc" placeholder="Escribí la descripción (ej: Almuerzo oficina)" autocomplete="off" style="display:none">
       <button class="btn btn-add full" id="q-add">＋ Agregar</button>
     </div>
   </div>
@@ -163,9 +166,34 @@
   </div>
 </div>
 
+<!-- Aviso de versión nueva (pedido 1) -->
+<div id="modalUpd" class="modal-bg">
+  <div class="modal">
+    <div class="row between" style="margin-bottom:10px"><strong>🎉 Nueva versión disponible</strong></div>
+    <p id="upd-msg" style="color:#cbd5e1;font-size:14px;line-height:1.5;margin:0 0 16px"></p>
+    <div class="grid">
+      <button class="btn btn-ghost" id="upd-later">Más tarde</button>
+      <button class="btn btn-add" id="upd-now">⟳ Actualizar ahora</button>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin:10px 0 0">La app se reinicia sola. Tus datos quedan intactos.</p>
+  </div>
+</div>
+
+<!-- Confirmación genérica reutilizable (pedido 6) -->
+<div id="modalConfirm" class="modal-bg">
+  <div class="modal">
+    <div class="row between" style="margin-bottom:10px"><strong id="cf-title">Confirmar</strong><button id="cf-x" class="del" style="font-size:20px">✕</button></div>
+    <p id="cf-msg" style="color:#cbd5e1;font-size:14px;line-height:1.5;margin:0 0 16px"></p>
+    <div class="grid">
+      <button class="btn btn-ghost" id="cf-cancel">Cancelar</button>
+      <button class="btn btn-add" id="cf-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 "use strict";
-const APP_VERSION = "6.1";
+const APP_VERSION = "6.2";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -241,11 +269,22 @@ function toast(msg, onClick){
 
 // Junta las descripciones que YA usaste (de tus movimientos) para el desplegable.
 // Como los datos viven en el localStorage de ESTE dispositivo, solo aparecen las tuyas.
+// Las ordenamos por frecuencia (las que más repetís, arriba) y dejamos al final
+// la opción "Escribir una nueva…" para cargar una descripción que todavía no existe.
 function poblarSugerencias(){
   const cont={};
   mov.forEach(m=>{ const d=(m.descripcion||"").trim(); if(d) cont[d]=(cont[d]||0)+1; });
   const orden=Object.keys(cont).sort((a,b)=>cont[b]-cont[a]); // las más repetidas primero
-  const dl=$("desc-sugeridas"); if(dl) dl.innerHTML = orden.map(d=>`<option value="${esc(d)}"></option>`).join("");
+  const sel=$("q-desc-sel"); if(!sel) return;
+  sel.innerHTML =
+    `<option value="">— Sin descripción —</option>`
+    + orden.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join("")
+    + `<option value="__nueva">✏️ Escribir una nueva…</option>`;
+}
+// Devuelve la descripción elegida: la del select, o lo tipeado si está en modo "nueva".
+function descElegida(){
+  const sel=$("q-desc-sel"); if(!sel) return "";
+  return sel.value==="__nueva" ? $("q-desc").value.trim() : sel.value;
 }
 
 function montoVigente(hist, ym){ let best=null; (hist||[]).forEach(h=>{ if(h.d<=ym && (!best||h.d>best.d)) best=h; }); return best?best.m:0; }
@@ -451,7 +490,7 @@ function renderAjustes(){
       <div class="full"><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-imonto="${i}" value="${m}"></div>
       <div class="full"><label>Aplicar desde</label>${desdeSel('i',i,mesActivo)}</div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
-        <button class="btn btn-add mini" data-saveing="${i}" style="flex:1">💾 Guardar monto</button>
+        <button class="btn btn-add mini" data-saveing="${i}" style="flex:1">💾 Guardar</button>
         <button class="del" data-t="deling" data-i="${i}">🗑</button></div>
       ${histTxt}</div>`;
   }).join("");
@@ -464,7 +503,7 @@ function renderAjustes(){
       <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-fmonto="${i}" value="${montoActual}"></div>
       <div class="full"><label>Aplicar cambio desde</label>${desdeSel('f',i,mesActivo)}</div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
-        <button class="btn btn-add mini" data-savefijo="${i}" style="flex:1">💾 Guardar monto</button>
+        <button class="btn btn-add mini" data-savefijo="${i}" style="flex:1">💾 Guardar</button>
         <button class="del" data-t="delfijo" data-i="${i}">🗑</button></div>
       ${histTxt}</div>`;
   }).join("");
@@ -475,7 +514,9 @@ function renderAjustes(){
       <div><label>Total cuotas</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="t" value="${q.t}"></div>
       <div><label>Cuota en ${histLabel(q.d)}</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="c" value="${q.c}"></div>
       <div><label>Total de la compra ($)</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-ctotal="${i}" value="${q.tot||''}"></div>
-      <div style="display:flex;gap:6px;align-items:flex-end"><div style="flex:1"><label>$ por cuota</label><input class="mini" type="text" value="${fmtN(q.m||0)}" readonly tabindex="-1" style="opacity:.55;background:var(--card);cursor:not-allowed"></div>
+      <div class="full"><label>$ por cuota (calculado)</label><input class="mini" type="text" value="${fmtN(q.m||0)}" readonly tabindex="-1" style="opacity:.55;background:var(--card);cursor:not-allowed"></div>
+      <div class="full" style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-add mini" data-savecuota="${i}" style="flex:1">💾 Guardar</button>
         <button class="del" data-t="delcuota" data-i="${i}">🗑</button></div></div>`).join("");
 
   $("content").innerHTML =
@@ -504,13 +545,46 @@ function renderAjustes(){
        <button class="btn btn-ghost danger" id="reset">↺ Borrar todo y empezar de cero</button>
        <p style="font-size:11px;color:var(--muted);margin:8px 0 0">El backup guarda TODO en un archivo. Hacelo cada tanto, por las dudas.</p></div>`;
 
-  // Cuotas: se siguen recalculando al toque (necesitan re-render para mostrar $/cuota).
+  // Cuotas: cada campo guarda en memoria al toque, pero NO re-renderiza (así no te
+  // salta el foco mientras editás). El recálculo de "$ por cuota" y el refresco visual
+  // se hacen al tocar el botón 💾 Guardar de esa cuota.
   $("content").querySelectorAll("[data-t='cuota']").forEach(el=>{
     el.onchange = ()=>{ const i=+el.dataset.i,k=el.dataset.k;
       let val = (el.type==="number"? (parseFloat(el.value)||0) : el.value);
       config.cuotas[i][k]=val;
       if(k==="t"){ const tot=config.cuotas[i].tot||0; config.cuotas[i].m=(val>0)?Math.round(tot/val):0; }
-      persistC(); render(); };
+      persistC(); };
+  });
+  $("content").querySelectorAll("[data-ctotal]").forEach(el=>{
+    el.onchange=()=>{ const i=+el.dataset.ctotal; const tot=parseMonto(el.value); const t=config.cuotas[i].t||0;
+      config.cuotas[i].tot=(!tot||tot<=0)?0:tot;
+      config.cuotas[i].m=(config.cuotas[i].tot>0 && t>0)?Math.round(config.cuotas[i].tot/t):0;
+      persistC(); };
+  });
+  $("content").querySelectorAll("[data-cmes],[data-canio]").forEach(el=>{
+    el.onchange=()=>{ const i=+(el.dataset.cmes ?? el.dataset.canio);
+      const mEl=$("content").querySelector("[data-cmes='"+i+"']"), yEl=$("content").querySelector("[data-canio='"+i+"']");
+      config.cuotas[i].d = yEl.value+"-"+String(+mEl.value).padStart(2,"0"); persistC(); };
+  });
+  // Botón Guardar — Cuotas: relee TODA la fila (por si algún onchange no saltó en mobile),
+  // recalcula el $/cuota = total de la compra / total de cuotas, persiste y refresca.
+  $("content").querySelectorAll("[data-savecuota]").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.savecuota, root=$("content"), g=sel=>root.querySelector(sel);
+    const nEl=g("input[data-t='cuota'][data-i='"+i+"'][data-k='n']");
+    const fEl=g("select[data-t='cuota'][data-i='"+i+"'][data-k='f']");
+    const tEl=g("input[data-t='cuota'][data-i='"+i+"'][data-k='t']");
+    const cEl=g("input[data-t='cuota'][data-i='"+i+"'][data-k='c']");
+    const totEl=g("[data-ctotal='"+i+"']");
+    const mEl=g("[data-cmes='"+i+"']"), yEl=g("[data-canio='"+i+"']");
+    const q=config.cuotas[i];
+    if(nEl) q.n=nEl.value.trim();
+    if(fEl) q.f=fEl.value;
+    if(tEl) q.t=parseInt(tEl.value,10)||0;
+    if(cEl) q.c=parseInt(cEl.value,10)||1;
+    if(mEl&&yEl) q.d=yEl.value+"-"+String(+mEl.value).padStart(2,"0");
+    if(totEl){ const tot=parseMonto(totEl.value); q.tot=(!tot||tot<=0)?0:tot; }
+    q.m=(q.tot>0 && q.t>0)?Math.round(q.tot/q.t):0;
+    persistC(); toast("Cuota guardada ✓"); render();
   });
   // Ingresos / Fijos: nombre y categoría se guardan solos SIN re-render (no salta el foco).
   $("content").querySelectorAll("[data-t='ingreso'],[data-t='fijo']").forEach(el=>{
@@ -518,16 +592,6 @@ function renderAjustes(){
       if(t==="ingreso") config.ingresos[i][k]=el.value;
       else config.fijos[i][k]=el.value;
       persistC(); };
-  });
-  $("content").querySelectorAll("[data-ctotal]").forEach(el=>{
-    el.onchange=()=>{ const i=+el.dataset.ctotal; const tot=parseMonto(el.value); const t=config.cuotas[i].t||0;
-      if(!tot||tot<=0){ config.cuotas[i].tot=0; config.cuotas[i].m=0; persistC(); render(); return; }
-      config.cuotas[i].tot=tot; config.cuotas[i].m=(t>0)?Math.round(tot/t):0; persistC(); render(); };
-  });
-  $("content").querySelectorAll("[data-cmes],[data-canio]").forEach(el=>{
-    el.onchange=()=>{ const i=+(el.dataset.cmes ?? el.dataset.canio);
-      const mEl=$("content").querySelector("[data-cmes='"+i+"']"), yEl=$("content").querySelector("[data-canio='"+i+"']");
-      config.cuotas[i].d = yEl.value+"-"+String(+mEl.value).padStart(2,"0"); persistC(); render(); };
   });
   // Botón Guardar monto — Ingresos (aplica nombre + monto vigente y avisa "Guardado ✓")
   $("content").querySelectorAll("[data-saveing]").forEach(b=>b.onclick=()=>{
@@ -558,7 +622,14 @@ function renderAjustes(){
   $("add-ing").onclick=()=>{ ajFold.ing=false; config.ingresos.push({n:"",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
   $("add-fijo").onclick=()=>{ ajFold.fijos=false; config.fijos.push({n:"",cat:"Servicios",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
   $("add-cuota").onclick=()=>{ ajFold.cuotas=false; config.cuotas.push({n:"",f:"Visa",c:1,t:6,m:0,tot:0,d:mesActivo}); persistC(); render(); };
-  $("reset").onclick=()=>{ if(confirm("¿Borrar TODOS tus datos y empezar de cero?")){ config=SEED(); mov=MOV_SEED(); persistC(); persistM(); mesActivo=ymNow(); render(); } };
+  $("reset").onclick=()=>{
+    confirmar(
+      "Borrar todo y empezar de cero",
+      "Vas a borrar TODOS tus datos: ingresos, gastos fijos, cuotas y movimientos. Esta acción no se puede deshacer. Si querés guardar una copia antes, cancelá y tocá «Descargar backup».",
+      ()=>{ config=SEED(); mov=MOV_SEED(); persistC(); persistM(); mesActivo=ymNow(); colapsado={}; colCuotas={}; ajFold={ing:true,fijos:true,cuotas:true}; render(); toast("Datos borrados ✓"); },
+      "Sí, borrar todo", true
+    );
+  };
   $("backup").onclick=()=>{
     const data={ app:"MisGastos", fecha:new Date().toISOString(), config, mov };
     const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));
@@ -584,6 +655,7 @@ function abrirModalAlta(){
   $("q-monto").value=""; $("q-desc").value=""; $("q-cat").selectedIndex=0; $("q-medio").selectedIndex=0; $("q-fecha").value=hoy();
   $("q-add").textContent="＋ Agregar";
   poblarSugerencias();
+  $("q-desc-sel").value=""; $("q-desc").style.display="none";  // arranca en "Sin descripción"
   $("modal").classList.add("open"); $("q-monto").focus();
 }
 function abrirModalEdit(id){
@@ -592,9 +664,14 @@ function abrirModalEdit(id){
   $("q-monto").value=v.monto;
   $("q-cat").value=v.categoria;
   const ms=$("q-medio"); if(![...ms.options].some(o=>o.value===v.medio)) ms.add(new Option(v.medio, v.medio)); ms.value=v.medio;
-  $("q-fecha").value=v.fecha; $("q-desc").value=v.descripcion||"";
+  $("q-fecha").value=v.fecha;
   $("q-add").textContent="✓ Guardar cambios";
   poblarSugerencias();
+  // Si la descripción ya figura en la lista, la seleccionamos; si no (rara), modo "nueva".
+  const sel=$("q-desc-sel"), d=v.descripcion||"";
+  if(d && [...sel.options].some(o=>o.value===d)){ sel.value=d; $("q-desc").style.display="none"; $("q-desc").value=""; }
+  else if(d){ sel.value="__nueva"; $("q-desc").style.display=""; $("q-desc").value=d; }
+  else { sel.value=""; $("q-desc").style.display="none"; $("q-desc").value=""; }
   $("modal").classList.add("open"); $("q-monto").focus();
 }
 function cerrarModal(){ $("modal").classList.remove("open"); editId=null; }
@@ -657,24 +734,53 @@ $("d-edit").onclick=()=>{ const id=detId; cerrarModalDet(); abrirModalEdit(id); 
 $("d-del").onclick=()=>{ if(detId && confirm("¿Borrar este gasto?")){ mov=mov.filter(x=>x.id!==detId); persistM(); cerrarModalDet(); render(); } };
 $("q-monto").addEventListener("keydown",e=>{ if(e.key==="Enter") $("q-add").click(); });
 $("q-desc").addEventListener("keydown",e=>{ if(e.key==="Enter") $("q-add").click(); });
+// Al elegir "Escribir una nueva…" mostramos el campo de texto libre; con cualquier otra opción lo ocultamos.
+$("q-desc-sel").onchange=()=>{
+  const nueva = $("q-desc-sel").value==="__nueva";
+  $("q-desc").style.display = nueva ? "" : "none";
+  if(nueva){ $("q-desc").value=""; $("q-desc").focus(); }
+};
 $("q-add").onclick=()=>{
   const monto=parseMonto($("q-monto").value);
   if(!monto||monto<=0){ $("q-monto").focus(); return; }
+  const desc=descElegida();
   if(editId){
     const v=mov.find(x=>x.id===editId);
-    if(v){ v.monto=monto; v.categoria=$("q-cat").value; v.medio=$("q-medio").value; v.fecha=$("q-fecha").value||hoy(); v.descripcion=$("q-desc").value.trim(); }
+    if(v){ v.monto=monto; v.categoria=$("q-cat").value; v.medio=$("q-medio").value; v.fecha=$("q-fecha").value||hoy(); v.descripcion=desc; }
   } else {
-    mov.unshift({id:Date.now()+"_"+Math.random().toString(36).slice(2,6), monto, categoria:$("q-cat").value, fecha:$("q-fecha").value||hoy(), descripcion:$("q-desc").value.trim(), medio:$("q-medio").value});
+    mov.unshift({id:Date.now()+"_"+Math.random().toString(36).slice(2,6), monto, categoria:$("q-cat").value, fecha:$("q-fecha").value||hoy(), descripcion:desc, medio:$("q-medio").value});
   }
   persistM(); cerrarModal(); vista="mov"; render();
 };
 
+/* ===== Modal de confirmación reutilizable (pedido 6) ===== */
+let _cfOk=null;
+function confirmar(titulo, msg, onOk, textoOk, peligro){
+  $("cf-title").textContent = titulo;
+  $("cf-msg").textContent = msg;
+  const ok=$("cf-ok");
+  ok.textContent = textoOk || "Confirmar";
+  ok.className = peligro ? "btn btn-add danger" : "btn btn-add"; // rojo si es destructivo
+  _cfOk = onOk;
+  $("modalConfirm").classList.add("open");
+}
+function cerrarConfirm(){ $("modalConfirm").classList.remove("open"); _cfOk=null; }
+$("cf-x").onclick=cerrarConfirm;
+$("cf-cancel").onclick=cerrarConfirm;
+$("modalConfirm").onclick=e=>{ if(e.target.id==="modalConfirm") cerrarConfirm(); };
+$("cf-ok").onclick=()=>{ const fn=_cfOk; cerrarConfirm(); if(fn) fn(); };
+
+/* ===== Evitar el zoom por doble toque y por pellizco — que quede fijo (pedido 2) =====
+   touch-action:manipulation (en el CSS) ya mata el double-tap-to-zoom; acá además
+   cancelamos el gesto de pellizco de Safari para que el nivel de zoom no se mueva. */
+document.addEventListener("gesturestart", e=>e.preventDefault(), {passive:false});
+
 render();
 
 /* ===== Aviso de "versión nueva" (pensado para tu modelo de reemplazar index.html) =====
-   Como ahora el Service Worker abre desde cache (rápido), en segundo plano
-   chequeamos contra la red si subiste una versión más nueva. Si la hay,
-   te aparece un toast tocable para refrescar. Si no hay internet, no molesta. */
+   Como el Service Worker abre desde cache (rápido), en segundo plano chequeamos contra
+   la red si subiste una versión más nueva. Si la hay, te aparece un CARTEL (modal) con
+   botón "Actualizar ahora". Si no hay internet, no molesta. */
 async function chequearUpdate(){
   try{
     const res = await fetch("./index.html?freshcheck="+Date.now(), {cache:"no-store"});
@@ -682,10 +788,47 @@ async function chequearUpdate(){
     const txt = await res.text();
     const m = txt.match(/APP_VERSION\s*=\s*"([^"]+)"/);
     if(m && m[1] !== APP_VERSION){
-      toast("Versión nueva ("+m[1]+") — tocá para actualizar", ()=>location.reload());
+      $("upd-msg").textContent = "Hay una versión nueva ("+m[1]+") lista. Estás usando la "+APP_VERSION+".";
+      $("modalUpd").classList.add("open");
     }
   }catch(e){ /* sin conexión: lo dejamos pasar */ }
 }
+
+/* ===== Aplicar la actualización: refrescar el HTML cacheado y reiniciar (pedido 1) =====
+   El Service Worker abre desde cache, así que para que entre la versión nueva en UN solo
+   reload le pedimos que vuelva a bajar el index fresco de la red y lo reemplace en su
+   cache. Cuando confirma, recargamos. Si por algo no responde, borramos las entradas
+   HTML del cache nosotros y recargamos igual. Los datos viven en localStorage: intactos. */
+async function borrarCacheHTML(){
+  if(!("caches" in window)) return;
+  try{
+    const keys = await caches.keys();
+    for(const k of keys){
+      const c = await caches.open(k);
+      await Promise.all(
+        ["./","./index.html",location.pathname,location.href.split("?")[0]]
+          .map(u=>c.delete(u).catch(()=>{}))
+      );
+    }
+  }catch(e){}
+}
+function aplicarUpdate(){
+  $("upd-now").textContent="Actualizando…"; $("upd-now").disabled=true;
+  let hecho=false;
+  const recargar=()=>{ if(hecho) return; hecho=true; location.reload(); };
+  const sw = navigator.serviceWorker;
+  if(sw && sw.controller){
+    // Escuchamos la confirmación del SW (que ya refrescó el cache) y recargamos
+    sw.addEventListener("message", ev=>{ if(ev.data && ev.data.type==="HTML_REFRESCADO") recargar(); });
+    sw.controller.postMessage({type:"REFRESCAR_HTML"});
+    setTimeout(recargar, 2500); // fallback por si el SW no contesta
+  } else {
+    borrarCacheHTML().finally(recargar);
+  }
+}
+$("upd-later").onclick=()=>$("modalUpd").classList.remove("open");
+$("upd-now").onclick=aplicarUpdate;
+$("modalUpd").onclick=e=>{ if(e.target.id==="modalUpd") $("modalUpd").classList.remove("open"); };
 setTimeout(chequearUpdate, 1500);
 </script>
 

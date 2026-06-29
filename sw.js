@@ -9,7 +9,7 @@
      "versión nueva" del index.html para no quedarse pegado a la copia vieja.
    Para forzar una limpieza total, subí el número de versión del cache (CACHE). */
 
-const CACHE = "mis-gastos-v2";
+const CACHE = "mis-gastos-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -79,4 +79,25 @@ self.addEventListener("fetch", e => {
       }).catch(() => cached)
     )
   );
+});
+
+/* Mensaje desde la página: cuando el usuario toca "Actualizar ahora", la app nos pide
+   refrescar el HTML cacheado. Bajamos el index fresco de la red (sin pasar por cache) y
+   lo reemplazamos en NUESTRO cache (acá sí sabemos el nombre exacto del cache). Después
+   avisamos a todas las pestañas para que recarguen: así entra la versión nueva en un
+   solo reload, sin que el usuario tenga que abrir y cerrar dos veces. */
+self.addEventListener("message", e => {
+  if (!e.data || e.data.type !== "REFRESCAR_HTML") return;
+  e.waitUntil((async () => {
+    try {
+      const cache = await caches.open(CACHE);
+      const fresh = await fetch("./index.html", { cache: "no-store" });
+      if (fresh && fresh.ok) {
+        await cache.put("./index.html", fresh.clone());
+        await cache.put("./", fresh);
+      }
+    } catch (err) { /* sin internet: dejamos lo que haya cacheado */ }
+    const clients = await self.clients.matchAll({ includeUncontrolled: true });
+    clients.forEach(c => c.postMessage({ type: "HTML_REFRESCADO" }));
+  })());
 });
