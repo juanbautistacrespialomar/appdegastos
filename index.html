@@ -1022,13 +1022,56 @@ async function chequearUpdate(){
   try{
     const res = await fetch("./index.html?freshcheck="+Date.now(), {cache:"no-store"});
     if(!res.ok) return;
-    const txt = await res.text();
-    const m = txt.match(/APP_VERSION\s*=\s*"([^"]+)"/);
-    if(m && m[1] !== APP_VERSION){
-      $("upd-msg").textContent = "Hay una versión nueva ("+m[1]+") lista. Estás usando la "+APP_VERSION+".";
-      $("modalUpd").classList.add("open");
+    const red = await res.text();
+
+    // Leemos el index tal cual lo tiene cacheado el Service Worker (= el que estás
+    // corriendo). Si difiere del de la red, hay versión nueva. Esto NO depende de que
+    // hayas cambiado APP_VERSION a mano: detecta CUALQUIER cambio de contenido.
+    const cacheado = await leerIndexCacheado();
+
+    let hayNueva;
+    if(cacheado != null){
+      hayNueva = (red !== cacheado);
+    } else {
+      // Fallback (no se pudo leer el cache): volvemos a comparar por número de versión.
+      const mm = red.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+      hayNueva = !!(mm && mm[1] !== APP_VERSION);
     }
+    if(!hayNueva) return;
+
+    const m = red.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+    const vTxt = (m && m[1] !== APP_VERSION) ? (" ("+m[1]+")") : "";
+    $("upd-msg").textContent = "Hay una versión nueva"+vTxt+" lista. Estás usando la "+APP_VERSION+".";
+    $("modalUpd").classList.add("open");
   }catch(e){ /* sin conexión: lo dejamos pasar */ }
+}
+
+// Devuelve el texto del index.html guardado en el cache del Service Worker (o null si no
+// lo encuentra). Recorre todos los caches y prueba las URLs típicas; si no matchea ninguna,
+// busca cualquier entrada .html que contenga APP_VERSION (nuestro index).
+async function leerIndexCacheado(){
+  if(!("caches" in window)) return null;
+  try{
+    const base = location.href.split("?")[0].split("#")[0];
+    const candidatos = ["./","index.html","./index.html",location.pathname,base];
+    const keys = await caches.keys();
+    for(const k of keys){
+      const c = await caches.open(k);
+      for(const u of candidatos){
+        const r = await c.match(u);
+        if(r) return await r.text();
+      }
+      // Último recurso: recorrer las entradas del cache buscando nuestro index.
+      const reqs = await c.keys();
+      for(const req of reqs){
+        if(req.url.includes("index.html") || req.url.endsWith("/")){
+          const r = await c.match(req);
+          if(r){ const t = await r.text(); if(t.includes("APP_VERSION")) return t; }
+        }
+      }
+    }
+  }catch(e){}
+  return null;
 }
 
 /* ===== Aplicar la actualización: refrescar el HTML cacheado y reiniciar (pedido 1) =====
@@ -1067,6 +1110,8 @@ $("upd-later").onclick=()=>$("modalUpd").classList.remove("open");
 $("upd-now").onclick=aplicarUpdate;
 $("modalUpd").onclick=e=>{ if(e.target.id==="modalUpd") $("modalUpd").classList.remove("open"); };
 setTimeout(chequearUpdate, 1500);
+// También cuando volvés a la app (sin recargarla), por si subiste una versión mientras tanto.
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") chequearUpdate(); });
 </script>
 
 <script>
