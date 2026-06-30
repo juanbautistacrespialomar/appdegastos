@@ -137,7 +137,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v6.4 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v6.5 · tus datos se guardan en este dispositivo.</p>
 </div>
 
 <nav class="bottomnav">
@@ -210,7 +210,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.4";
+const APP_VERSION = "6.5";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -362,6 +362,7 @@ function setupCombo(input, getOptions, onPick){
     box.style.display="block";
   }
   function cerrar(){ box.style.display="none"; box.innerHTML=""; }
+  sinAutofillContacto(input);   // evita la barra "Autorrellenar contacto" de iOS
   input.addEventListener("input", ()=>{ abrir(); if(onPick) onPick(input.value); });
   input.addEventListener("focus", ()=>{ try{ input.select(); }catch(e){} abrir(); });
   input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ cerrar(); input.blur(); } });
@@ -375,7 +376,19 @@ function setupCombo(input, getOptions, onPick){
   });
   return { abrir, cerrar };
 }
-// UN solo listener global: al tocar fuera de un combo, cierra las listas que no contengan el toque.
+/* ===== Sacar la barra "Autorrellenar contacto" de iOS =====
+   iOS la muestra en campos de texto que cree que son de contacto (nombre, etc.) e IGNORA
+   autocomplete="off". El único truco confiable: el campo arranca readonly (iOS no ofrece
+   autocompletar en readonly) y, al enfocarlo, le sacamos el readonly en el próximo tick
+   para que escribas normal. Al salir vuelve a readonly, así el truco sirve la próxima vez.
+   Si en algún iOS te obliga a tocar dos veces, esta es la función a quitar. */
+function sinAutofillContacto(input){
+  if(!input || input._antiAF) return;   // no duplicar binding
+  input._antiAF = true;
+  input.setAttribute("readonly","");
+  input.addEventListener("focus", ()=>{ setTimeout(()=>input.removeAttribute("readonly"), 0); });
+  input.addEventListener("blur",  ()=>{ input.setAttribute("readonly",""); });
+}
 // (Sirve para TODOS los combos, incluido el de descripción.)
 document.addEventListener("mousedown", e=>{
   document.querySelectorAll(".combo-list").forEach(box=>{
@@ -719,6 +732,11 @@ function renderAjustes(){
     const i=+inp.dataset.i;
     setupCombo(inp, formasDePago, val=>{ if(config.cuotas[i]){ config.cuotas[i].f = val.trim(); persistC(); } });
   });
+  // Mismo truco anti "Autorrellenar contacto" para los campos de texto (Detalle / Nombre)
+  // de cuotas, fijos e ingresos.
+  $("content").querySelectorAll(
+    "input[data-t='cuota'][data-k='n'], input[data-t='fijo'][data-k='n'], input[data-t='ingreso'][data-k='n']"
+  ).forEach(sinAutofillContacto);
   // Botón Guardar — Cuotas: relee TODA la fila (por si algún onchange no saltó en mobile),
   // recalcula el $/cuota = total de la compra / total de cuotas, persiste y refresca.
   $("content").querySelectorAll("[data-savecuota]").forEach(b=>b.onclick=()=>{
@@ -881,6 +899,7 @@ $("d-edit").onclick=()=>{ const id=detId; cerrarModalDet(); abrirModalEdit(id); 
 $("d-del").onclick=()=>{ if(detId && confirm("¿Borrar este gasto?")){ mov=mov.filter(x=>x.id!==detId); persistM(); cerrarModalDet(); render(); } };
 $("q-monto").addEventListener("keydown",e=>{ if(e.key==="Enter") $("q-add").click(); });
 // Combobox de descripción: al escribir o enfocar se abre/filtra la lista.
+sinAutofillContacto($("q-desc"));   // también acá, para que no aparezca "Autorrellenar contacto"
 $("q-desc").addEventListener("input", abrirDescList);
 $("q-desc").addEventListener("focus", abrirDescList);
 $("q-desc").addEventListener("keydown",e=>{ if(e.key==="Enter"){ cerrarDescList(); $("q-add").click(); } });
