@@ -101,3 +101,35 @@ self.addEventListener("message", e => {
     clients.forEach(c => c.postMessage({ type: "HTML_REFRESCADO" }));
   })());
 });
+
+/* ===== Push: recordatorios diarios =====
+   El payload que manda el Worker (vía GitHub Actions) es JSON: { body, tag }.
+   En iOS el nombre de la app lo pone el sistema arriba, así que para no repetir
+   "Mis Gastos" usamos la propia frase como título (sale en negrita) y dejamos
+   el cuerpo vacío. El logo lo toma del ícono de la PWA (icon-192.png). */
+self.addEventListener("push", e => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (err) { data = { body: e.data ? e.data.text() : "" }; }
+  const frase = data.body || data.title || "Pasá a cargar tus gastos.";
+  const options = {
+    body: "",
+    icon: "./icon-192.png",
+    badge: "./icon-192.png",
+    tag: data.tag || "mis-gastos-recordatorio",
+    renotify: true,
+    data: { url: "./" }
+  };
+  e.waitUntil(self.registration.showNotification(frase, options));
+});
+
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const targetUrl = (e.notification.data && e.notification.data.url) || "./";
+  e.waitUntil((async () => {
+    const clientsArr = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of clientsArr) {
+      if (c.url.includes(self.location.origin) && "focus" in c) return c.focus();
+    }
+    if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+  })());
+});

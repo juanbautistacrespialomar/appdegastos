@@ -357,6 +357,82 @@ function setupPinEntry(padEl, dotsEl, errEl, len, onComplete){
   pintar();
   return { reset };
 }
+
+/* ===== Recordatorios push (diarios, vía Worker + GitHub Actions) =====
+   Reemplazá VAPID_PUBLIC_KEY y RECORDATORIOS_URL por los valores reales una
+   vez que despliegues el Worker (ver checklist). Lo que se sincroniza son
+   solo 6 números agregados — nunca montos individuales, descripciones ni
+   nombres de tarjeta. */
+const VAPID_PUBLIC_KEY = "BHe5al9QdWygfWL8ZnF15HY4oLqVtM9LjibaAUkTWkmdktJT5k47ub1qtmkdc-NGdr73HENMJMEmQIUpNZt5Kkw";
+const RECORDATORIOS_URL = "https://mis-gastos-recordatorios.juanbautistacrespialomar.workers.dev/sync";
+const PKEY = "misGastosApp.push.v1";
+let pushPrefs = load(PKEY, {enabled:false});
+
+function urlBase64ToUint8Array(base64String){
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g,"+").replace(/_/g,"/");
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+
+async function activarRecordatorios(){
+  if(!("serviceWorker" in navigator) || !("PushManager" in window)){ alert("Tu navegador no soporta notificaciones push."); return false; }
+  try{
+    const perm = await Notification.requestPermission();
+    if(perm!=="granted") return false;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+    pushPrefs.enabled=true; save(PKEY,pushPrefs);
+    await sincronizarRecordatorios(sub, true);
+    return true;
+  }catch(e){ console.warn("No se pudo activar recordatorios:", e); return false; }
+}
+async function desactivarRecordatorios(){
+  pushPrefs.enabled=false; save(PKEY,pushPrefs);
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub) await sub.unsubscribe();
+  }catch(e){}
+}
+/* Solo números agregados — nada de detalle. "ADiaX" es una simplificación:
+   compara el total acumulado del mes vs. el total del mes anterior completo
+   (no exactamente "hasta el mismo día"), suficiente para las frases que
+   tenemos. Si más adelante querés más precisión, se puede filtrar `mov` por
+   día del mes acá mismo. */
+function calcularSignals(){
+  const ymHoy=ymNow();
+  const c=computeMes(ymHoy);
+  const cPrev=computeMes(ymAdd(ymHoy,-1));
+  const ultimaCarga = mov.reduce((max,m)=> (m.fecha && m.fecha>max ? m.fecha : max), "");
+  let acumPrev=0, nPrev=0;
+  for(let i=1;i<=6;i++){ const cc=computeMes(ymAdd(ymHoy,-i)); if(cc.gasto>0){ acumPrev+=cc.gasto; nPrev++; } }
+  return {
+    ultimaCarga: ultimaCarga || null,
+    gastoEsteMesADiaX: Math.round(c.gasto),
+    gastoMesAnteriorADiaX: Math.round(cPrev.gasto),
+    ingresoEsteMes: Math.round(c.ingreso),
+    gastoTarjetaEsteMes: Math.round(c.tC),
+    promedioHistorico: nPrev ? Math.round(acumPrev/nPrev) : 0
+  };
+}
+let _ultimoSyncTs=0;
+async function sincronizarRecordatorios(subOpcional, forzar){
+  if(!pushPrefs.enabled) return;
+  if(!forzar && Date.now()-_ultimoSyncTs < 60000) return;
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = subOpcional || await reg.pushManager.getSubscription();
+    if(!sub) return;
+    _ultimoSyncTs = Date.now();
+    await fetch(RECORDATORIOS_URL, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ subscription: sub.toJSON(), signals: calcularSignals() })
+    });
+  }catch(e){ console.warn("No se pudo sincronizar recordatorios:", e); }
+}
+
 let vista="resumen";
 let vistaPrev="resumen";
 let mesActivo=ymNow();
@@ -603,6 +679,7 @@ function render(){
   $("content").querySelectorAll(".var-row").forEach(el=>el.onclick=(e)=>{ if(e.target.closest(".del")) return; abrirModalDet(el.dataset.edit); });
   $("content").querySelectorAll(".fgroup").forEach(el=>el.onclick=()=>{ const cat=el.dataset.cat; colapsado[cat] = (colapsado[cat]!==false)? false : true; render(); });
   $("content").querySelectorAll(".fgroup-c").forEach(el=>el.onclick=()=>{ const card=el.dataset.card; colCuotas[card] = (colCuotas[card]===true)? false : true; render(); });
+  sincronizarRecordatorios();
 }
 
 function renderResumen(c){
@@ -805,6 +882,9 @@ function renderAjustes(){
          <span style="color:var(--muted);font-size:14px">${ajFold.cuotas?'▸':'▾'}</span></div>
        <button class="btn btn-ghost" id="add-cuota" style="margin:10px 0 ${ajFold.cuotas?'0':'12px'}">＋ Agregar cuota</button>
        ${ajFold.cuotas?'':(cuotaRows||'<div class="empty" style="padding:8px">Todavía no cargaste cuotas.</div>')}</div>
+     <div class="panel"><p class="ptitle">🔔 Recordatorios</p>
+       <label class="chk"><input type="checkbox" id="pushToggle" ${pushPrefs.enabled?"checked":""}> Activar recordatorios diarios</label>
+       <p style="font-size:11px;color:var(--muted);margin:8px 0 0">Te avisa si hace días que no cargás nada o si algo llama la atención en tus gastos del mes. Solo se sincronizan totales (nunca el detalle de tus movimientos).</p></div>
      <div class="panel"><p class="ptitle">🔒 Seguridad</p>
        <label class="chk" style="margin-bottom:${lock.enabled?'10px':'0'}"><input type="checkbox" id="lockToggle" ${lock.enabled?"checked":""}> Bloquear la app con PIN al abrirla</label>
        ${lock.enabled?`
@@ -934,6 +1014,22 @@ function renderAjustes(){
       e.target.value=""; };
     r.readAsText(file);
   };
+
+  /* ===== Recordatorios: activar/desactivar push ===== */
+  const pushToggle=$("pushToggle");
+  if(pushToggle){
+    pushToggle.onchange=async ()=>{
+      if(pushToggle.checked){
+        pushToggle.checked=false;
+        const ok=await activarRecordatorios();
+        if(ok){ pushToggle.checked=true; toast("Recordatorios activados ✓"); }
+        else alert("No se pudo activar. Revisá que le diste permiso de notificaciones a la app.");
+      } else {
+        await desactivarRecordatorios();
+        toast("Recordatorios desactivados");
+      }
+    };
+  }
 
   /* ===== Seguridad: activar/desactivar PIN, cambiarlo, y togglear biometría ===== */
   const lockToggle=$("lockToggle");
@@ -1217,6 +1313,7 @@ function iniciarApp(){ if(lock.enabled) mostrarLockScreen(true); else render(); 
 document.addEventListener("visibilitychange", ()=>{
   if(document.visibilityState==="hidden" && lock.enabled) bloqueada=true;
   else if(document.visibilityState==="visible" && lock.enabled && bloqueada) mostrarLockScreen(false);
+  if(document.visibilityState==="visible") sincronizarRecordatorios();
 });
 iniciarApp();
 
