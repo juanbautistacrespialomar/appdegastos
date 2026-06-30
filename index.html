@@ -68,6 +68,16 @@
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .grid .full { grid-column:1/-1; }
   input,select { width:100%; min-width:0; background:var(--card2); border:1px solid #334155; border-radius:10px; padding:10px 11px; color:var(--txt); font:inherit; }
+  /* Combobox de descripción: input editable + lista que se despliega y filtra al tipear */
+  .combo { position:relative; }
+  .combo-list { display:none; position:absolute; left:0; right:0; top:calc(100% + 4px);
+    background:var(--card2); border:1px solid #334155; border-radius:10px;
+    max-height:190px; overflow-y:auto; z-index:60; box-shadow:0 12px 28px rgba(0,0,0,.55); }
+  .combo-opt { padding:11px 12px; font-size:14px; cursor:pointer; color:var(--txt);
+    border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .combo-opt:last-child { border-bottom:none; }
+  .combo-opt:hover, .combo-opt:active { background:#334155; }
+  .combo-empty { padding:11px 12px; font-size:13px; color:var(--muted); }
   input:focus,select:focus { outline:none; border-color:var(--green); }
   .btn-add { background:var(--green); padding:11px; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; gap:6px; }
   .btn-add:active { background:#059669; }
@@ -145,11 +155,10 @@
       <select id="q-cat"></select>
       <select id="q-medio"></select>
       <input type="date" id="q-fecha">
-      <select class="full" id="q-desc-sel">
-        <option value="">— Sin descripción —</option>
-        <option value="__nueva">✏️ Escribir una nueva…</option>
-      </select>
-      <input class="full" type="text" id="q-desc" placeholder="Escribí la descripción (ej: Almuerzo oficina)" autocomplete="off" style="display:none">
+      <div class="combo full" id="q-desc-wrap">
+        <input type="text" id="q-desc" placeholder="Descripción — escribí y elegí de la lista" autocomplete="off">
+        <div class="combo-list" id="q-desc-list"></div>
+      </div>
       <button class="btn btn-add full" id="q-add">＋ Agregar</button>
     </div>
   </div>
@@ -267,25 +276,32 @@ function toast(msg, onClick){
   t._timer=setTimeout(()=>{ t.classList.remove("show"); }, onClick ? 9000 : 1600);
 }
 
-// Junta las descripciones que YA usaste (de tus movimientos) para el desplegable.
-// Como los datos viven en el localStorage de ESTE dispositivo, solo aparecen las tuyas.
-// Las ordenamos por frecuencia (las que más repetís, arriba) y dejamos al final
-// la opción "Escribir una nueva…" para cargar una descripción que todavía no existe.
+// Lista de descripciones que YA usaste (de tus movimientos), ordenadas por frecuencia.
+// Vive solo en este dispositivo. La usamos para el desplegable filtrable de la descripción.
+let DESCS = [];
 function poblarSugerencias(){
   const cont={};
   mov.forEach(m=>{ const d=(m.descripcion||"").trim(); if(d) cont[d]=(cont[d]||0)+1; });
-  const orden=Object.keys(cont).sort((a,b)=>cont[b]-cont[a]); // las más repetidas primero
-  const sel=$("q-desc-sel"); if(!sel) return;
-  sel.innerHTML =
-    `<option value="">— Sin descripción —</option>`
-    + orden.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join("")
-    + `<option value="__nueva">✏️ Escribir una nueva…</option>`;
+  DESCS = Object.keys(cont).sort((a,b)=>cont[b]-cont[a]); // las más repetidas primero
 }
-// Devuelve la descripción elegida: la del select, o lo tipeado si está en modo "nueva".
-function descElegida(){
-  const sel=$("q-desc-sel"); if(!sel) return "";
-  return sel.value==="__nueva" ? $("q-desc").value.trim() : sel.value;
+// Normaliza para comparar sin importar mayúsculas ni acentos (así "almuerzo" matchea "Almuerzo").
+const normD = s => (s||"").toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+// Abre/refresca la lista filtrada según lo que estás escribiendo.
+function abrirDescList(){
+  const box=$("q-desc-list"); if(!box) return;
+  const q=normD($("q-desc").value);
+  let items;
+  if(q){
+    // Coinciden las que CONTIENEN el texto; primero las que EMPIEZAN con él.
+    items = DESCS.map(d=>({d, i:normD(d).indexOf(q)})).filter(o=>o.i>=0)
+                 .sort((a,b)=>a.i-b.i).map(o=>o.d);
+  } else { items = DESCS.slice(); }
+  items = items.slice(0,30);
+  if(items.length===0){ cerrarDescList(); return; } // sin parecidos: queda lo que escribiste
+  box.innerHTML = items.map(d=>`<div class="combo-opt">${esc(d)}</div>`).join("");
+  box.style.display="block";
 }
+function cerrarDescList(){ const box=$("q-desc-list"); if(box){ box.style.display="none"; box.innerHTML=""; } }
 
 function montoVigente(hist, ym){ let best=null; (hist||[]).forEach(h=>{ if(h.d<=ym && (!best||h.d>best.d)) best=h; }); return best?best.m:0; }
 function setVig(obj, desde, monto){ if(!obj.hist) obj.hist=[]; const ex=obj.hist.find(h=>h.d===desde); if(ex) ex.m=monto; else obj.hist.push({d:desde,m:monto}); obj.hist.sort((a,b)=>a.d.localeCompare(b.d)); persistC(); render(); }
@@ -654,8 +670,7 @@ function abrirModalAlta(){
   editId=null; $("m-title").textContent="Nuevo gasto variable";
   $("q-monto").value=""; $("q-desc").value=""; $("q-cat").selectedIndex=0; $("q-medio").selectedIndex=0; $("q-fecha").value=hoy();
   $("q-add").textContent="＋ Agregar";
-  poblarSugerencias();
-  $("q-desc-sel").value=""; $("q-desc").style.display="none";  // arranca en "Sin descripción"
+  poblarSugerencias(); cerrarDescList();
   $("modal").classList.add("open"); $("q-monto").focus();
 }
 function abrirModalEdit(id){
@@ -665,16 +680,12 @@ function abrirModalEdit(id){
   $("q-cat").value=v.categoria;
   const ms=$("q-medio"); if(![...ms.options].some(o=>o.value===v.medio)) ms.add(new Option(v.medio, v.medio)); ms.value=v.medio;
   $("q-fecha").value=v.fecha;
+  $("q-desc").value=v.descripcion||"";
   $("q-add").textContent="✓ Guardar cambios";
-  poblarSugerencias();
-  // Si la descripción ya figura en la lista, la seleccionamos; si no (rara), modo "nueva".
-  const sel=$("q-desc-sel"), d=v.descripcion||"";
-  if(d && [...sel.options].some(o=>o.value===d)){ sel.value=d; $("q-desc").style.display="none"; $("q-desc").value=""; }
-  else if(d){ sel.value="__nueva"; $("q-desc").style.display=""; $("q-desc").value=d; }
-  else { sel.value=""; $("q-desc").style.display="none"; $("q-desc").value=""; }
+  poblarSugerencias(); cerrarDescList();
   $("modal").classList.add("open"); $("q-monto").focus();
 }
-function cerrarModal(){ $("modal").classList.remove("open"); editId=null; }
+function cerrarModal(){ $("modal").classList.remove("open"); editId=null; cerrarDescList(); }
 
 let detId=null;
 function abrirModalDet(id){
@@ -733,17 +744,24 @@ $("modalDet").onclick=e=>{ if(e.target.id==="modalDet") cerrarModalDet(); };
 $("d-edit").onclick=()=>{ const id=detId; cerrarModalDet(); abrirModalEdit(id); };
 $("d-del").onclick=()=>{ if(detId && confirm("¿Borrar este gasto?")){ mov=mov.filter(x=>x.id!==detId); persistM(); cerrarModalDet(); render(); } };
 $("q-monto").addEventListener("keydown",e=>{ if(e.key==="Enter") $("q-add").click(); });
-$("q-desc").addEventListener("keydown",e=>{ if(e.key==="Enter") $("q-add").click(); });
-// Al elegir "Escribir una nueva…" mostramos el campo de texto libre; con cualquier otra opción lo ocultamos.
-$("q-desc-sel").onchange=()=>{
-  const nueva = $("q-desc-sel").value==="__nueva";
-  $("q-desc").style.display = nueva ? "" : "none";
-  if(nueva){ $("q-desc").value=""; $("q-desc").focus(); }
-};
+// Combobox de descripción: al escribir o enfocar se abre/filtra la lista.
+$("q-desc").addEventListener("input", abrirDescList);
+$("q-desc").addEventListener("focus", abrirDescList);
+$("q-desc").addEventListener("keydown",e=>{ if(e.key==="Enter"){ cerrarDescList(); $("q-add").click(); } });
+// Elegir una opción: usamos mousedown + preventDefault para que el input no pierda
+// el foco antes de registrar el toque (clave en mobile). Copia el texto y cierra.
+$("q-desc-list").addEventListener("mousedown", e=>{
+  const opt=e.target.closest(".combo-opt"); if(!opt) return;
+  e.preventDefault();
+  $("q-desc").value=opt.textContent;
+  cerrarDescList();
+});
+// Tocar fuera del combo lo cierra (si no hay parecidos, queda lo que escribiste).
+document.addEventListener("mousedown", e=>{ if(!e.target.closest("#q-desc-wrap")) cerrarDescList(); });
 $("q-add").onclick=()=>{
   const monto=parseMonto($("q-monto").value);
   if(!monto||monto<=0){ $("q-monto").focus(); return; }
-  const desc=descElegida();
+  const desc=$("q-desc").value.trim();
   if(editId){
     const v=mov.find(x=>x.id===editId);
     if(v){ v.monto=monto; v.categoria=$("q-cat").value; v.medio=$("q-medio").value; v.fecha=$("q-fecha").value||hoy(); v.descripcion=desc; }
