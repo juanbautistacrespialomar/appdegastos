@@ -137,7 +137,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v6.5 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v6.6 · tus datos se guardan en este dispositivo.</p>
 </div>
 
 <nav class="bottomnav">
@@ -210,7 +210,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.5";
+const APP_VERSION = "6.6";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -376,18 +376,14 @@ function setupCombo(input, getOptions, onPick){
   });
   return { abrir, cerrar };
 }
-/* ===== Sacar la barra "Autorrellenar contacto" de iOS =====
-   iOS la muestra en campos de texto que cree que son de contacto (nombre, etc.) e IGNORA
-   autocomplete="off". El único truco confiable: el campo arranca readonly (iOS no ofrece
-   autocompletar en readonly) y, al enfocarlo, le sacamos el readonly en el próximo tick
-   para que escribas normal. Al salir vuelve a readonly, así el truco sirve la próxima vez.
-   Si en algún iOS te obliga a tocar dos veces, esta es la función a quitar. */
+/* ===== Barra "Autorrellenar contacto" de iOS — DESACTIVADO =====
+   Se probó el truco de readonly-al-enfocar, pero en iOS rompía la apertura del teclado
+   (enfocar un campo readonly no lo levanta). No vale la pena: la barra es solo cosmética y
+   el campo igual queda visible por encima del teclado gracias al scroll de focusin.
+   Dejo la función como no-op (y limpia cualquier readonly que hubiera quedado) para no
+   tener que tocar los lugares donde se la llama. */
 function sinAutofillContacto(input){
-  if(!input || input._antiAF) return;   // no duplicar binding
-  input._antiAF = true;
-  input.setAttribute("readonly","");
-  input.addEventListener("focus", ()=>{ setTimeout(()=>input.removeAttribute("readonly"), 0); });
-  input.addEventListener("blur",  ()=>{ input.setAttribute("readonly",""); });
+  if(input && input.removeAttribute) input.removeAttribute("readonly");
 }
 // (Sirve para TODOS los combos, incluido el de descripción.)
 document.addEventListener("mousedown", e=>{
