@@ -137,7 +137,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v6.2 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v6.3 · tus datos se guardan en este dispositivo.</p>
 </div>
 
 <nav class="bottomnav">
@@ -158,7 +158,10 @@
     <div class="grid">
       <input class="full" type="text" inputmode="decimal" id="q-monto" placeholder="Monto ($)  ej: 1234,50">
       <select id="q-cat"></select>
-      <select id="q-medio"></select>
+      <div class="combo" id="q-medio-wrap">
+        <input type="text" id="q-medio" placeholder="Forma de pago — escribí o elegí" autocomplete="off">
+        <div class="combo-list" id="q-medio-list"></div>
+      </div>
       <input type="date" id="q-fecha">
       <div class="combo full" id="q-desc-wrap">
         <input type="text" id="q-desc" placeholder="Descripción — escribí y elegí de la lista" autocomplete="off">
@@ -207,7 +210,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.2";
+const APP_VERSION = "6.3";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -312,6 +315,86 @@ function abrirDescList(){
 }
 function cerrarDescList(){ const box=$("q-desc-list"); if(box){ box.style.display="none"; box.innerHTML=""; } }
 
+/* ===== Formas de pago: UNA sola fuente de verdad para todos los desplegables =====
+   Junta las base (Efectivo, Débito, etc.) + TODO lo que ya usaste en movimientos
+   (medio) y en cuotas (fuente). Así, cuando cargás algo nuevo, te aparece lo que ya
+   tenés escrito (ej: "Visa Banco Provincia") y lo re-elegís en vez de tipear una variante
+   ("Visa BP") que después rompe la agrupación del resumen de cuotas.
+   Se ordena por frecuencia de uso (lo más usado arriba) y desempata alfabético. */
+const FORMAS_BASE = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago","Visa","Mastercard"];
+function formasDePago(){
+  const cont={};
+  const add = s => { s=(s||"").toString().trim(); if(s) cont[s]=(cont[s]||0)+1; };
+  FORMAS_BASE.forEach(add);                 // siempre presentes, aunque no las uses
+  mov.forEach(m=>add(m.medio));             // medios usados en gastos variables
+  config.cuotas.forEach(q=>add(q.f));       // tarjetas/fuentes usadas en cuotas
+  return Object.keys(cont).sort((a,b)=> (cont[b]-cont[a]) || a.localeCompare(b,"es"));
+}
+
+/* ===== Combobox reutilizable: convierte cualquier <input> en autocompletar filtrable =====
+   Es el mismo patrón del combo de descripción, pero genérico para reusarlo en los campos
+   de forma de pago (modal de gasto) y de tarjeta (cada cuota en Ajustes).
+     input      → el <input> que está adentro de un contenedor con class="combo"
+     getOptions → función que devuelve el array de sugerencias VIGENTE (siempre fresco)
+     onPick     → (opcional) se llama al elegir/escribir; ahí persistís el dato si hace falta
+   Importante: NO agrega listeners al document (eso lo maneja UN solo listener global más
+   abajo), así no se acumulan en cada re-render de las filas de cuotas. */
+function setupCombo(input, getOptions, onPick){
+  if(!input) return;
+  const wrap = input.closest(".combo"); if(!wrap) return;
+  let box = wrap.querySelector(".combo-list");
+  if(!box){ box=document.createElement("div"); box.className="combo-list"; wrap.appendChild(box); }
+  function abrir(){
+    const q = normD(input.value);
+    let items = getOptions();
+    if(q){
+      // las que CONTIENEN el texto; primero las que EMPIEZAN con él (índice 0 arriba)
+      items = items.map(d=>({d, i:normD(d).indexOf(q)})).filter(o=>o.i>=0)
+                   .sort((a,b)=>a.i-b.i).map(o=>o.d);
+    }
+    items = items.slice(0,30);
+    if(items.length===0){ cerrar(); return; }       // sin parecidos: queda lo que escribiste
+    box.innerHTML = items.map(d=>`<div class="combo-opt">${esc(d)}</div>`).join("");
+    // si abajo no hay lugar (teclado / borde inferior), la desplegamos hacia arriba
+    const r=input.getBoundingClientRect();
+    const visH=(window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    box.classList.toggle("up", (visH - r.bottom) < 230);
+    box.style.display="block";
+  }
+  function cerrar(){ box.style.display="none"; box.innerHTML=""; }
+  input.addEventListener("input", ()=>{ abrir(); if(onPick) onPick(input.value); });
+  input.addEventListener("focus", ()=>{ try{ input.select(); }catch(e){} abrir(); });
+  input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ cerrar(); input.blur(); } });
+  // Elegir opción: mousedown + preventDefault para no perder el foco antes de registrar el toque.
+  box.addEventListener("mousedown", e=>{
+    const opt=e.target.closest(".combo-opt"); if(!opt) return;
+    e.preventDefault();
+    input.value=opt.textContent;
+    cerrar();
+    if(onPick) onPick(input.value);
+  });
+  return { abrir, cerrar };
+}
+// UN solo listener global: al tocar fuera de un combo, cierra las listas que no contengan el toque.
+// (Sirve para TODOS los combos, incluido el de descripción.)
+document.addEventListener("mousedown", e=>{
+  document.querySelectorAll(".combo-list").forEach(box=>{
+    const wrap=box.closest(".combo");
+    if(wrap && !wrap.contains(e.target)) box.style.display="none";
+  });
+});
+
+/* Rellena el <select> del filtro de Movimientos con TODAS las formas de pago conocidas,
+   conservando la opción que tengas elegida (si todavía existe). */
+function poblarFiltroMedios(){
+  const sel=$("f-medio"); if(!sel) return;
+  const cur=fMedio;
+  sel.innerHTML = `<option value="__todos">Todos los medios</option>` +
+    formasDePago().map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join("");
+  sel.value = [...sel.options].some(o=>o.value===cur) ? cur : "__todos";
+  if(sel.value!==cur) fMedio=sel.value;
+}
+
 function montoVigente(hist, ym){ let best=null; (hist||[]).forEach(h=>{ if(h.d<=ym && (!best||h.d>best.d)) best=h; }); return best?best.m:0; }
 // Monto de un ingreso en un mes. Si es "solo este mes" (once), cuenta únicamente en los
 // meses EXACTOS donde lo cargaste (ej: aguinaldo en jun y dic), no de ahí en adelante.
@@ -375,6 +458,7 @@ function render(){
   $("monthLabel").textContent = nombreMes(mesActivo);
   $("eyeBtn").textContent = oculto ? "🙈" : "👁";
   $("filtros").style.display = vista==="mov" ? "" : "none";
+  poblarFiltroMedios();
   const _orden=["resumen","mov","cuotas","ajustes"], _idx=_orden.indexOf(vista), _cambioVista=vista!==vistaPrev;
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.v===vista));
   if(_idx>=0) $("tabInd").style.transform="translateX("+(_idx*100)+"%)";
@@ -505,7 +589,12 @@ function renderCuotas(){
     return h;
   }
   const totalRest = config.cuotas.reduce((s,q)=>{ const k=ymDiff(q.d,mesActivo); if(k<0||k>(q.t-q.c)) return s; return s+((q.t-q.c)-k+1)*q.m; },0);
-  const cuerpo = TARJETAS.map(f=>bloque(f, tarjetaLabel(f))).join("");
+  // Primero las tarjetas base y después CUALQUIER fuente personalizada que tengas cargada
+  // (ej: "Visa BBVA"). Sin esto, las cuotas con tarjeta propia no se mostraban acá.
+  const fuentes = TARJETAS.concat(
+    [...new Set(config.cuotas.map(q=>q.f))].filter(f=>f && !TARJETAS.includes(f))
+  );
+  const cuerpo = fuentes.map(f=>bloque(f, tarjetaLabel(f))).join("");
   $("content").innerHTML =
     `<div class="panel" style="padding:12px 14px"><span style="color:var(--muted);font-size:13px">Total comprometido en cuotas (desde ${nombreMes(mesActivo)})</span>
        <div style="font-size:22px;font-weight:700;color:var(--violet);margin-top:4px">${fmt(totalRest)}</div></div>`
@@ -566,7 +655,7 @@ function renderAjustes(){
   }).join("");
   const cuotaRows = config.cuotas.map((q,i)=>`<div class="crow">
       <div class="full"><label>Detalle</label><input class="mini" data-t="cuota" data-i="${i}" data-k="n" value="${esc(q.n)}" placeholder="Ej: Heladera, Zapatillas…"></div>
-      <div><label>Tarjeta</label><select class="mini" data-t="cuota" data-i="${i}" data-k="f">${tarjOpts(q.f)}</select></div>
+      <div class="full combo"><label>Tarjeta / forma de pago</label><input class="mini" data-t="cuota" data-i="${i}" data-k="f" value="${esc(q.f||'')}" placeholder="Escribí o elegí (ej: Visa Banco Provincia)" autocomplete="off"><div class="combo-list"></div></div>
       <div><label>Mes 1ª cuota</label><div style="display:flex;gap:4px">${mesSel(i,+q.d.split("-")[1])}${anioSel(i,+q.d.split("-")[0])}</div></div>
       <div><label>Total cuotas</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="t" value="${q.t}"></div>
       <div><label>Cuota en ${histLabel(q.d)}</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="c" value="${q.c}"></div>
@@ -623,19 +712,26 @@ function renderAjustes(){
       const mEl=$("content").querySelector("[data-cmes='"+i+"']"), yEl=$("content").querySelector("[data-canio='"+i+"']");
       config.cuotas[i].d = yEl.value+"-"+String(+mEl.value).padStart(2,"0"); persistC(); };
   });
+  // Combo de tarjeta/forma de pago en cada cuota: al elegir o escribir, guarda q.f SIN
+  // re-renderizar (para no perder el foco ni colapsar la fila). El refresco visual del
+  // resumen se hace cuando tocás 💾 Guardar o cambiás de pestaña.
+  $("content").querySelectorAll("input[data-t='cuota'][data-k='f']").forEach(inp=>{
+    const i=+inp.dataset.i;
+    setupCombo(inp, formasDePago, val=>{ if(config.cuotas[i]){ config.cuotas[i].f = val.trim(); persistC(); } });
+  });
   // Botón Guardar — Cuotas: relee TODA la fila (por si algún onchange no saltó en mobile),
   // recalcula el $/cuota = total de la compra / total de cuotas, persiste y refresca.
   $("content").querySelectorAll("[data-savecuota]").forEach(b=>b.onclick=()=>{
     const i=+b.dataset.savecuota, root=$("content"), g=sel=>root.querySelector(sel);
     const nEl=g("input[data-t='cuota'][data-i='"+i+"'][data-k='n']");
-    const fEl=g("select[data-t='cuota'][data-i='"+i+"'][data-k='f']");
+    const fEl=g("[data-t='cuota'][data-i='"+i+"'][data-k='f']");
     const tEl=g("input[data-t='cuota'][data-i='"+i+"'][data-k='t']");
     const cEl=g("input[data-t='cuota'][data-i='"+i+"'][data-k='c']");
     const totEl=g("[data-ctotal='"+i+"']");
     const mEl=g("[data-cmes='"+i+"']"), yEl=g("[data-canio='"+i+"']");
     const q=config.cuotas[i];
     if(nEl) q.n=nEl.value.trim();
-    if(fEl) q.f=fEl.value;
+    if(fEl) q.f=fEl.value.trim();
     if(tEl) q.t=parseInt(tEl.value,10)||0;
     if(cEl) q.c=parseInt(cEl.value,10)||1;
     if(mEl&&yEl) q.d=yEl.value+"-"+String(+mEl.value).padStart(2,"0");
@@ -708,7 +804,7 @@ function renderAjustes(){
 
 function abrirModalAlta(){
   editId=null; $("m-title").textContent="Nuevo gasto variable";
-  $("q-monto").value=""; $("q-desc").value=""; $("q-cat").selectedIndex=0; $("q-medio").selectedIndex=0; $("q-fecha").value=hoy();
+  $("q-monto").value=""; $("q-desc").value=""; $("q-cat").selectedIndex=0; $("q-medio").value="Efectivo"; $("q-fecha").value=hoy();
   $("q-add").textContent="＋ Agregar";
   poblarSugerencias(); cerrarDescList();
   $("modal").classList.add("open"); $("q-monto").focus();
@@ -718,7 +814,7 @@ function abrirModalEdit(id){
   editId=id; $("m-title").textContent="Editar gasto";
   $("q-monto").value=v.monto;
   $("q-cat").value=v.categoria;
-  const ms=$("q-medio"); if(![...ms.options].some(o=>o.value===v.medio)) ms.add(new Option(v.medio, v.medio)); ms.value=v.medio;
+  $("q-medio").value=v.medio||"";
   $("q-fecha").value=v.fecha;
   $("q-desc").value=v.descripcion||"";
   $("q-add").textContent="✓ Guardar cambios";
@@ -769,9 +865,9 @@ $("eyeBtn").onclick=()=>{ oculto=!oculto; render(); };
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ vista=t.dataset.v; render(); });
 
 $("q-cat").innerHTML = CATS.map(c=>`<option>${c}</option>`).join("");
-$("q-medio").innerHTML = MEDIOS.map(m=>`<option>${m}</option>`).join("");
+setupCombo($("q-medio"), formasDePago, null);   // medio de pago del gasto variable: input editable + sugerencias
 $("f-cat").innerHTML = `<option value="__todas">Todas las categorías</option>` + CATS.map(c=>`<option value="${c}">${c}</option>`).join("");
-$("f-medio").innerHTML = `<option value="__todos">Todos los medios</option>` + MEDIOS.map(m=>`<option value="${m}">${m}</option>`).join("");
+poblarFiltroMedios();   // el filtro de medios se arma dinámico (y se refresca en cada render)
 $("f-texto").oninput=()=>{ fTexto=$("f-texto").value; render(); };
 $("f-cat").onchange=()=>{ fCat=$("f-cat").value; render(); };
 $("f-medio").onchange=()=>{ fMedio=$("f-medio").value; render(); };
@@ -802,11 +898,12 @@ $("q-add").onclick=()=>{
   const monto=parseMonto($("q-monto").value);
   if(!monto||monto<=0){ $("q-monto").focus(); return; }
   const desc=$("q-desc").value.trim();
+  const medio=$("q-medio").value.trim() || "Efectivo";
   if(editId){
     const v=mov.find(x=>x.id===editId);
-    if(v){ v.monto=monto; v.categoria=$("q-cat").value; v.medio=$("q-medio").value; v.fecha=$("q-fecha").value||hoy(); v.descripcion=desc; }
+    if(v){ v.monto=monto; v.categoria=$("q-cat").value; v.medio=medio; v.fecha=$("q-fecha").value||hoy(); v.descripcion=desc; }
   } else {
-    mov.unshift({id:Date.now()+"_"+Math.random().toString(36).slice(2,6), monto, categoria:$("q-cat").value, fecha:$("q-fecha").value||hoy(), descripcion:desc, medio:$("q-medio").value});
+    mov.unshift({id:Date.now()+"_"+Math.random().toString(36).slice(2,6), monto, categoria:$("q-cat").value, fecha:$("q-fecha").value||hoy(), descripcion:desc, medio:medio});
   }
   persistM(); cerrarModal(); vista="mov"; render();
 };
