@@ -72,7 +72,8 @@
   .combo { position:relative; }
   .combo-list { display:none; position:absolute; left:0; right:0; top:calc(100% + 4px);
     background:var(--card2); border:1px solid #334155; border-radius:10px;
-    max-height:190px; overflow-y:auto; z-index:60; box-shadow:0 12px 28px rgba(0,0,0,.55); }
+    max-height:190px; overflow-y:auto; overscroll-behavior:contain; z-index:60; box-shadow:0 12px 28px rgba(0,0,0,.55); }
+  .combo-list.up { top:auto; bottom:calc(100% + 4px); }
   .combo-opt { padding:11px 12px; font-size:14px; cursor:pointer; color:var(--txt);
     border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .combo-opt:last-child { border-bottom:none; }
@@ -94,9 +95,11 @@
   .danger { background:#3f1d1d; color:#fca5a5; }
   #fab { position:fixed; right:18px; bottom:calc(80px + env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; background:var(--green); color:#fff; font-size:30px; line-height:54px; text-align:center; border:none; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; z-index:51; }
   #fab:active { background:#059669; }
-  .modal-bg { position:fixed; inset:0; background:rgba(2,6,23,.7); display:none; align-items:flex-end; justify-content:center; z-index:60; }
+  .modal-bg { position:fixed; inset:0; background:rgba(2,6,23,.7); display:none; align-items:flex-end; justify-content:center; z-index:60; overflow:hidden; overscroll-behavior:contain; padding-bottom:var(--kb,0px); transition:padding-bottom .12s ease; }
   .modal-bg.open { display:flex; }
-  .modal { background:var(--card); border:1px solid var(--border); border-radius:16px 16px 0 0; padding:16px; width:100%; max-width:600px; }
+  .modal { background:var(--card); border:1px solid var(--border); border-radius:16px 16px 0 0; padding:16px; width:100%; max-width:600px; max-height:calc(var(--appvh,100vh) - 16px); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+  /* Mientras hay un modal abierto, el fondo no scrollea (se mueve el cartel, no la pantalla de atrás) */
+  html:has(.modal-bg.open), body:has(.modal-bg.open) { overflow:hidden; }
   @media(min-width:600px){ .modal-bg{ align-items:center; } .modal{ border-radius:16px; } }
   .toast{ position:fixed; left:50%; bottom:calc(94px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(16px); max-width:88%; text-align:center; background:var(--green); color:#fff; padding:11px 18px; border-radius:999px; font-size:14px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:80; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
@@ -299,6 +302,10 @@ function abrirDescList(){
   items = items.slice(0,30);
   if(items.length===0){ cerrarDescList(); return; } // sin parecidos: queda lo que escribiste
   box.innerHTML = items.map(d=>`<div class="combo-opt">${esc(d)}</div>`).join("");
+  // Si abajo no hay lugar (teclado o borde inferior), la desplegamos hacia arriba.
+  const r=$("q-desc").getBoundingClientRect();
+  const visH=(window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  box.classList.toggle("up", (visH - r.bottom) < 230);
   box.style.display="block";
 }
 function cerrarDescList(){ const box=$("q-desc-list"); if(box){ box.style.display="none"; box.innerHTML=""; } }
@@ -792,6 +799,26 @@ $("cf-ok").onclick=()=>{ const fn=_cfOk; cerrarConfirm(); if(fn) fn(); };
    touch-action:manipulation (en el CSS) ya mata el double-tap-to-zoom; acá además
    cancelamos el gesto de pellizco de Safari para que el nivel de zoom no se mueva. */
 document.addEventListener("gesturestart", e=>e.preventDefault(), {passive:false});
+
+/* ===== Teclado en iOS: el teclado se superpone (no empuja el layout), así que medimos
+   el área realmente visible con visualViewport y la exponemos como variables CSS:
+   --appvh = alto visible (para el max-height del modal, que así scrollea interno)
+   --kb    = alto del teclado (para subir el bottom-sheet por encima de él).
+   Con esto el cartel queda arriba del teclado y el contenido no queda tapado. */
+function ajustarVV(){
+  const vv = window.visualViewport;
+  const h  = vv ? vv.height : window.innerHeight;
+  const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+  const root = document.documentElement;
+  root.style.setProperty("--appvh", h + "px");
+  root.style.setProperty("--kb", kb + "px");
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", ajustarVV);
+  window.visualViewport.addEventListener("scroll", ajustarVV);
+}
+window.addEventListener("orientationchange", ()=>setTimeout(ajustarVV,200));
+ajustarVV();
 
 render();
 
