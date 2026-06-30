@@ -38,7 +38,11 @@
   .s { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
   .s .l { font-size:10px; color:var(--muted); display:flex; align-items:center; gap:4px; }
   .s .v { font-size:13px; font-weight:600; margin-top:2px; }
-  .bottomnav { position:fixed; left:0; right:0; bottom:0; z-index:50; background:var(--card2); border-top:1px solid var(--border); padding-bottom:env(safe-area-inset-bottom); }
+  .bottomnav { position:fixed; left:0; right:0; bottom:0; z-index:50; background:var(--card2); border-top:1px solid var(--border); padding-bottom:env(safe-area-inset-bottom); transition:transform .2s ease; }
+  /* Teclado abierto en iOS: en vez de dejar que Safari "levante" la barra fija y la deje
+     flotando encima del teclado, la mandamos abajo (fuera de pantalla). El FAB también. */
+  body.kb-open .bottomnav { transform:translateY(120%); }
+  body.kb-open #fab { transform:translateY(220%); opacity:0; pointer-events:none; }
   .bottomnav-inner { max-width:600px; margin:0 auto; display:flex; position:relative; }
   .tab { flex:1; position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 4px 8px; background:none; border:none; cursor:pointer; color:var(--muted); font:inherit; font-size:10px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; transition:color .25s; }
   .tab svg { width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
@@ -95,7 +99,7 @@
   .saldo-pos { color:var(--green); } .saldo-neg { color:var(--red); }
   text { font-family:system-ui,sans-serif; }
   .danger { background:#3f1d1d; color:#fca5a5; }
-  #fab { position:fixed; right:18px; bottom:calc(80px + env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; background:var(--green); color:#fff; font-size:30px; line-height:54px; text-align:center; border:none; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; z-index:51; }
+  #fab { position:fixed; right:18px; bottom:calc(80px + env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; background:var(--green); color:#fff; font-size:30px; line-height:54px; text-align:center; border:none; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; z-index:51; transition:transform .2s ease, opacity .2s ease; }
   #fab:active { background:#059669; }
   .modal-bg { position:fixed; inset:0; background:rgba(2,6,23,.7); display:none; align-items:flex-end; justify-content:center; z-index:60; overflow:hidden; overscroll-behavior:contain; padding-bottom:var(--kb,0px); transition:padding-bottom .12s ease; }
   .modal-bg.open { display:flex; }
@@ -629,6 +633,10 @@ function renderAjustes(){
   };
   const ingRows = config.ingresos.map((g,i)=>{
     const once=!!g.once;
+    // Ingreso "solo este mes": la fila se muestra ÚNICAMENTE en los meses donde lo
+    // cargaste (los que tienen entrada en su hist). En cualquier otro mes no aparece,
+    // así no queda flotando en cero. Mantenemos el índice real (i) para guardar/borrar.
+    if(once && !(g.hist||[]).some(h=>h.d===mesActivo)) return "";
     const m = once ? montoIngresoMes(g,mesActivo) : montoVigente(g.hist,mesActivo);
     let histTxt="";
     if(once){
@@ -649,6 +657,9 @@ function renderAjustes(){
         <button class="del" data-t="deling" data-i="${i}">🗑</button></div>
       ${histTxt}</div>`;
   }).join("");
+  // Cantidad de ingresos que efectivamente se muestran en este mes (recurrentes + los
+  // puntuales cargados en el mes activo), para que el contador del título no mienta.
+  const ingVisibles = config.ingresos.filter(g => !g.once || (g.hist||[]).some(h=>h.d===mesActivo)).length;
   const fijosRows = config.fijos.map((f,i)=>{
     const montoActual = montoVigente(f.hist, mesActivo);
     const histTxt = (f.hist&&f.hist.length>1)? `<div class="hist">Historial: ${f.hist.map(h=>histLabel(h.d)+": $"+fmtN(h.m)).join(" · ")}</div>` : "";
@@ -677,7 +688,7 @@ function renderAjustes(){
   $("content").innerHTML =
     `<div class="panel">
        <div class="row between fold-aj" data-fold="ing" style="cursor:pointer">
-         <p class="ptitle" style="margin:0">💵 Ingresos <span style="color:var(--muted);font-weight:400">· ${config.ingresos.length}</span></p>
+         <p class="ptitle" style="margin:0">💵 Ingresos <span style="color:var(--muted);font-weight:400">· ${ingVisibles}</span></p>
          <span style="color:var(--muted);font-size:14px">${ajFold.ing?'▸':'▾'}</span></div>
        <button class="btn btn-ghost" id="add-ing" style="margin:10px 0 ${ajFold.ing?'0':'12px'}">＋ Agregar ingreso</button>
        ${ajFold.ing?'':ingRows}</div>
@@ -958,6 +969,9 @@ function ajustarVV(){
   const root = document.documentElement;
   root.style.setProperty("--appvh", h + "px");
   root.style.setProperty("--kb", kb + "px");
+  // Teclado abierto: escondemos la bottomnav y el FAB (usamos un umbral para no
+  // confundir la barra de URL de Safari con el teclado real).
+  document.body.classList.toggle("kb-open", kb > 120);
   // Si justo apareció el teclado y hay un campo de la página esperando, lo subimos (una vez).
   if(_campoPendiente && kb>0){ asegurarVisible(_campoPendiente); _campoPendiente=null; }
 }
