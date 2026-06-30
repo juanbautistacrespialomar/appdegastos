@@ -89,6 +89,8 @@
   .mini { font-size:11px; padding:7px 8px; }
   .masked { -webkit-text-security:disc; text-security:disc; }
   .hist { font-size:10px; color:var(--muted); grid-column:1/-1; }
+  .chk { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--txt); cursor:pointer; padding:2px 0; }
+  .chk input[type=checkbox]{ width:18px; height:18px; min-width:18px; accent-color:var(--green); margin:0; }
   .foot { text-align:center; font-size:11px; color:#334155; margin-top:22px; }
   .saldo-pos { color:var(--green); } .saldo-neg { color:var(--red); }
   text { font-family:system-ui,sans-serif; }
@@ -311,10 +313,32 @@ function abrirDescList(){
 function cerrarDescList(){ const box=$("q-desc-list"); if(box){ box.style.display="none"; box.innerHTML=""; } }
 
 function montoVigente(hist, ym){ let best=null; (hist||[]).forEach(h=>{ if(h.d<=ym && (!best||h.d>best.d)) best=h; }); return best?best.m:0; }
+// Monto de un ingreso en un mes. Si es "solo este mes" (once), cuenta únicamente en los
+// meses EXACTOS donde lo cargaste (ej: aguinaldo en jun y dic), no de ahí en adelante.
+// Si no, se comporta como siempre: el último monto vigente hasta ese mes.
+function montoIngresoMes(g, ym){
+  if(g.once){ const h=(g.hist||[]).find(x=>x.d===ym); return h?h.m:0; }
+  return montoVigente(g.hist, ym);
+}
 function setVig(obj, desde, monto){ if(!obj.hist) obj.hist=[]; const ex=obj.hist.find(h=>h.d===desde); if(ex) ex.m=monto; else obj.hist.push({d:desde,m:monto}); obj.hist.sort((a,b)=>a.d.localeCompare(b.d)); persistC(); render(); }
+// Lee la fila de un ingreso (nombre, monto, mes elegido y el tilde "solo este mes") y lo guarda.
+// La usan tanto el botón 💾 Guardar como el checkbox. onceFlag: si viene booleano, lo fuerza
+// (lo manda el checkbox); si no, se respeta lo que esté tildado en la fila.
+function guardarIngreso(i, onceFlag){
+  const root=$("content"), g=config.ingresos[i]; if(!g) return;
+  const nEl   = root.querySelector("input[data-t='ingreso'][data-i='"+i+"'][data-k='n']");
+  const mEl   = root.querySelector("[data-imonto='"+i+"']");
+  const mesEl = root.querySelector("[data-imes='"+i+"']");
+  const anioEl= root.querySelector("[data-ianio='"+i+"']");
+  const onceEl= root.querySelector("[data-ionce='"+i+"']");
+  if(nEl) g.n = nEl.value.trim() || "Ingreso";
+  g.once = (typeof onceFlag==="boolean") ? onceFlag : (onceEl ? onceEl.checked : !!g.once);
+  const desde = (mesEl&&anioEl) ? (anioEl.value+"-"+String(+mesEl.value).padStart(2,"0")) : mesActivo;
+  setVig(g, desde, parseMonto(mEl?mEl.value:0)||0); // persistC + render
+}
 
 function computeMes(ym){
-  const ingresos=[]; config.ingresos.forEach(g=>{ const m=montoVigente(g.hist,ym); if(m>0) ingresos.push({nombre:g.n, monto:m}); });
+  const ingresos=[]; config.ingresos.forEach(g=>{ const m=montoIngresoMes(g,ym); if(m>0) ingresos.push({nombre:g.n, monto:m, once:!!g.once}); });
   const ingreso = ingresos.reduce((s,x)=>s+x.monto,0);
   const fijos=[]; config.fijos.forEach(f=>{ const m=montoVigente(f.hist,ym); if(m>0) fijos.push({nombre:f.n, monto:m, cat:f.cat}); });
   const cuotas=[];
@@ -440,7 +464,7 @@ function renderMov(c){
     $("content").innerHTML=h; return;
   }
   if(c.ingresos.length){ h+=`<div class="grouphdr"><span>Ingresos</span><span>${fmt(c.ingreso)}</span></div>`;
-    h+= c.ingresos.map(g=>fila(g.nombre,"Ingreso mensual",g.monto,"#10b981")).join(""); }
+    h+= c.ingresos.map(g=>fila(g.nombre, g.once?"Ingreso puntual (solo este mes)":"Ingreso mensual", g.monto,"#10b981")).join(""); }
 
   h+=`<div class="grouphdr"><span>Gastos fijos</span><span>${fmt(c.tF)}</span></div>`;
   if(!c.fijos.length){ h+=`<div class="empty">Agregá tus gastos fijos desde Ajustes.</div>`; }
@@ -506,12 +530,22 @@ function renderAjustes(){
       <select class="mini" data-${pre}anio="${i}" style="flex:0 0 88px">${ys}</select></div>`;
   };
   const ingRows = config.ingresos.map((g,i)=>{
-    const m=montoVigente(g.hist,mesActivo);
-    const histTxt=(g.hist&&g.hist.length>1)?`<div class="hist">Historial: ${g.hist.map(h=>histLabel(h.d)+": $"+fmtN(h.m)).join(" · ")}</div>`:"";
+    const once=!!g.once;
+    const m = once ? montoIngresoMes(g,mesActivo) : montoVigente(g.hist,mesActivo);
+    let histTxt="";
+    if(once){
+      const meses=(g.hist||[]).filter(h=>h.m>0).map(h=>histLabel(h.d));
+      if(meses.length) histTxt=`<div class="hist">Se cobra solo en: ${meses.join(" · ")}</div>`;
+    } else {
+      histTxt=(g.hist&&g.hist.length>1)?`<div class="hist">Historial: ${g.hist.map(h=>histLabel(h.d)+": $"+fmtN(h.m)).join(" · ")}</div>`:"";
+    }
+    const lblMonto = once ? `$ solo en ${histLabel(mesActivo)}` : `$ por mes (en ${histLabel(mesActivo)})`;
+    const lblMes   = once ? "Mes del ingreso" : "Aplicar desde";
     return `<div class="crow">
       <div class="full"><label>Nombre del ingreso</label><input class="mini" data-t="ingreso" data-i="${i}" data-k="n" value="${esc(g.n)}" placeholder="Ej: Sueldo, Freelance…"></div>
-      <div class="full"><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-imonto="${i}" value="${m}"></div>
-      <div class="full"><label>Aplicar desde</label>${desdeSel('i',i,mesActivo)}</div>
+      <div class="full"><label>${lblMonto}</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-imonto="${i}" value="${m}"></div>
+      <div class="full"><label class="chk"><input type="checkbox" data-ionce="${i}" ${once?"checked":""}> Solo este mes (no se repite — ej: aguinaldo, factura única)</label></div>
+      <div class="full"><label>${lblMes}</label>${desdeSel('i',i,mesActivo)}</div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
         <button class="btn btn-add mini" data-saveing="${i}" style="flex:1">💾 Guardar</button>
         <button class="del" data-t="deling" data-i="${i}">🗑</button></div>
@@ -616,15 +650,14 @@ function renderAjustes(){
       else config.fijos[i][k]=el.value;
       persistC(); };
   });
-  // Botón Guardar monto — Ingresos (aplica nombre + monto vigente y avisa "Guardado ✓")
+  // Botón Guardar — Ingresos (aplica nombre + monto + mes + tilde "solo este mes")
   $("content").querySelectorAll("[data-saveing]").forEach(b=>b.onclick=()=>{
-    const i=+b.dataset.saveing;
-    const nEl=$("content").querySelector("input[data-t='ingreso'][data-i='"+i+"'][data-k='n']");
-    const mEl=$("content").querySelector("[data-imonto='"+i+"']");
-    const dEl=$("content").querySelector("[data-idesde='"+i+"']");
-    if(nEl) config.ingresos[i].n = nEl.value.trim() || "Ingreso";
-    setVig(config.ingresos[i], (dEl&&dEl.value)||mesActivo, parseMonto(mEl.value)||0); // persistC + render
+    guardarIngreso(+b.dataset.saveing);
     toast("Ingreso guardado ✓");
+  });
+  // Tilde "Solo este mes": guarda la fila con el nuevo estado y re-renderiza para ajustar etiquetas.
+  $("content").querySelectorAll("[data-ionce]").forEach(ch=>ch.onchange=()=>{
+    guardarIngreso(+ch.dataset.ionce, ch.checked);
   });
   // Botón Guardar monto — Fijos (aplica nombre + categoría + monto vigente)
   $("content").querySelectorAll("[data-savefijo]").forEach(b=>b.onclick=()=>{
