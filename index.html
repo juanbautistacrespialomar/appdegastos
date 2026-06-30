@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Mis Gastos</title>
 <meta name="theme-color" content="#020617">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; object-src 'none';">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -109,9 +110,29 @@
   @media(min-width:600px){ .modal-bg{ align-items:center; } .modal{ border-radius:16px; } }
   .toast{ position:fixed; left:50%; bottom:calc(94px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(16px); max-width:88%; text-align:center; background:var(--green); color:#fff; padding:11px 18px; border-radius:999px; font-size:14px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:80; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+  #lockScreen{ position:fixed; inset:0; background:var(--bg); z-index:300; display:none; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px; text-align:center; }
+  #lockScreen.open{ display:flex; }
+  .pindots{ display:flex; gap:14px; height:14px; }
+  .pindot{ width:14px; height:14px; border-radius:50%; border:2px solid #475569; box-sizing:border-box; transition:background .12s, border-color .12s; }
+  .pindot.filled{ background:var(--amber); border-color:var(--amber); }
+  .pinpad{ display:grid; grid-template-columns:repeat(3,68px); gap:14px; }
+  .pinkey{ width:68px; height:68px; border-radius:50%; background:var(--card2); color:var(--txt); font-size:24px; border:none; font:inherit; }
+  .pinkey:active{ background:#334155; }
+  .pinkey.ghost{ background:none; color:var(--muted); font-size:14px; }
+  .lock-err{ color:var(--red); font-size:13px; min-height:18px; }
+  .lock-sub{ color:var(--muted); font-size:13px; margin-top:-8px; }
 </style>
 </head>
 <body>
+<div id="lockScreen">
+  <div style="font-size:40px">🔒</div>
+  <div id="lock-title" style="font-weight:600;font-size:16px">Ingresá tu PIN</div>
+  <div class="lock-sub" id="lock-sub" style="display:none"></div>
+  <div class="pindots" id="lock-dots"></div>
+  <div class="lock-err" id="lock-err"></div>
+  <div class="pinpad" id="lock-pad"></div>
+  <button class="btn btn-ghost" id="lock-bio" style="display:none">🆔 Usar Face ID / Touch ID</button>
+</div>
 <div class="wrap">
   <div class="row between header">
     <div class="row" style="gap:8px"><span style="font-size:22px">💰</span><h1>Mis Gastos</h1></div>
@@ -212,6 +233,17 @@
   </div>
 </div>
 
+<!-- Modal para crear / cambiar / verificar el PIN de bloqueo -->
+<div id="modalPin" class="modal-bg">
+  <div class="modal" style="text-align:center">
+    <div class="row between" style="margin-bottom:6px"><strong id="pin-title">PIN</strong><button id="pin-x" class="del" style="font-size:20px">✕</button></div>
+    <p class="lock-sub" id="pin-sub" style="margin:0 0 10px"></p>
+    <div class="pindots" id="pin-dots" style="justify-content:center;margin:0 auto 8px"></div>
+    <div class="lock-err" id="pin-err"></div>
+    <div class="pinpad" id="pin-pad" style="margin:8px auto 0"></div>
+  </div>
+</div>
+
 <script>
 "use strict";
 const APP_VERSION = "6.6";
@@ -256,6 +288,75 @@ function normMov(m){ if(!Array.isArray(m)) return []; m.forEach(x=>{ if(!x.medio
 
 let config = load(CKEY,null); config = config? normConfig(config) : SEED(); save(CKEY,config);
 let mov = load(MKEY,null); mov = (mov===null)? MOV_SEED() : normMov(mov); save(MKEY,mov);
+
+/* ===== Bloqueo con PIN / biometría (local al dispositivo) =====
+   Guardamos solo un hash SHA-256 (con salt) del PIN, nunca el PIN en texto plano.
+   La biometría (Face ID / Touch ID) usa WebAuthn con un autenticador de plataforma:
+   no hay servidor, así que no verificamos firma contra una clave pública — solo
+   confiamos en que navigator.credentials.get() resuelva sin error, que es la señal
+   de que el sistema operativo validó al usuario. Es una capa de conveniencia local,
+   no un protocolo de autenticación remota. */
+const LKEY = "misGastosApp.lock.v1";
+let lock = load(LKEY, {enabled:false, salt:null, hash:null, cred:null});
+function bytesToHex(buf){ return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join(""); }
+function randomHex(n){ const a=new Uint8Array(n); crypto.getRandomValues(a); return bytesToHex(a); }
+async function sha256Hex(str){ const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)); return bytesToHex(buf); }
+async function setPin(pin){ const salt=randomHex(16); const hash=await sha256Hex(salt+":"+pin); lock.enabled=true; lock.salt=salt; lock.hash=hash; save(LKEY,lock); }
+async function checkPin(pin){ if(!lock.hash||!lock.salt) return false; return (await sha256Hex(lock.salt+":"+pin))===lock.hash; }
+function desactivarLock(){ lock={enabled:false,salt:null,hash:null,cred:null}; save(LKEY,lock); }
+async function registrarBiometria(){
+  if(!window.PublicKeyCredential) return false;
+  try{
+    const disp = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    if(!disp) return false;
+    const userId=new Uint8Array(16); crypto.getRandomValues(userId);
+    const challenge=new Uint8Array(32); crypto.getRandomValues(challenge);
+    const cred=await navigator.credentials.create({ publicKey:{
+      challenge, rp:{name:"Mis Gastos"},
+      user:{ id:userId, name:"mis-gastos", displayName:"Mis Gastos" },
+      pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],
+      authenticatorSelection:{ authenticatorAttachment:"platform", userVerification:"required" },
+      timeout:60000
+    }});
+    if(!cred) return false;
+    lock.cred=btoa(String.fromCharCode(...new Uint8Array(cred.rawId))); save(LKEY,lock);
+    return true;
+  }catch(e){ return false; }
+}
+async function autenticarBiometria(){
+  if(!(lock.cred && window.PublicKeyCredential)) return false;
+  try{
+    const challenge=new Uint8Array(32); crypto.getRandomValues(challenge);
+    const idBytes=Uint8Array.from(atob(lock.cred), c=>c.charCodeAt(0));
+    const ases=await navigator.credentials.get({ publicKey:{
+      challenge, allowCredentials:[{id:idBytes,type:"public-key"}], userVerification:"required", timeout:60000
+    }});
+    return !!ases;
+  }catch(e){ return false; }
+}
+/* Teclado numérico reutilizable (pantalla de bloqueo + modal de PIN). */
+function pinPadHTML(){
+  return ["1","2","3","4","5","6","7","8","9","","0","del"].map(k=>{
+    if(k==="") return `<div></div>`;
+    if(k==="del") return `<button type="button" class="pinkey ghost" data-pinkey="del">⌫</button>`;
+    return `<button type="button" class="pinkey" data-pinkey="${k}">${k}</button>`;
+  }).join("");
+}
+function setupPinEntry(padEl, dotsEl, errEl, len, onComplete){
+  let buf="";
+  const pintar=()=>{ dotsEl.innerHTML=Array.from({length:len}).map((_,i)=>`<div class="pindot${i<buf.length?' filled':''}"></div>`).join(""); };
+  const reset=(msg)=>{ buf=""; pintar(); if(errEl) errEl.textContent=msg||""; };
+  padEl.innerHTML=pinPadHTML();
+  padEl.querySelectorAll("[data-pinkey]").forEach(b=>{ b.onclick=()=>{
+    const k=b.dataset.pinkey;
+    if(k==="del"){ buf=buf.slice(0,-1); pintar(); return; }
+    if(buf.length>=len) return;
+    buf+=k; pintar();
+    if(buf.length===len){ const val=buf; buf=""; setTimeout(()=>onComplete(val,reset),60); }
+  }; });
+  pintar();
+  return { reset };
+}
 let vista="resumen";
 let vistaPrev="resumen";
 let mesActivo=ymNow();
@@ -534,7 +635,7 @@ function grupoCuotas(lista){
     const sub=items.reduce((s,x)=>s+x.monto,0); const col=colCuotas[f]!==true;
     h+=`<div class="item fgroup-c" data-card="${esc(f)}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
           <span class="bar" style="background:#a855f7"></span>
-          <div class="desc">${col?'▸':'▾'} ${tarjetaLabel(f)} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
+          <div class="desc">${col?'▸':'▾'} ${esc(tarjetaLabel(f))} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
         <span class="amt">${fmt(sub)}</span></div>`;
     if(!col) h+= items.map(q=>`<div class="sub">`+fila(q.nombre, "", q.monto, "#a855f7")+`</div>`).join("");
   });
@@ -594,7 +695,7 @@ function renderCuotas(){
     if(!items.length) return "";
     const sub = items.reduce((s,x)=>s+x.total,0);
     const col = colCuotas[fuente]!==true;
-    let h=`<div class="item fgroup-c" data-card="${fuente}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
+    let h=`<div class="item fgroup-c" data-card="${esc(fuente)}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
         <span class="bar" style="background:#a855f7"></span>
         <div class="desc">${col?'▸':'▾'} ${etiqueta} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
       <span class="amt">${fmt(sub)}</span></div>`;
@@ -607,7 +708,7 @@ function renderCuotas(){
   const fuentes = TARJETAS.concat(
     [...new Set(config.cuotas.map(q=>q.f))].filter(f=>f && !TARJETAS.includes(f))
   );
-  const cuerpo = fuentes.map(f=>bloque(f, tarjetaLabel(f))).join("");
+  const cuerpo = fuentes.map(f=>bloque(f, esc(tarjetaLabel(f)))).join("");
   $("content").innerHTML =
     `<div class="panel" style="padding:12px 14px"><span style="color:var(--muted);font-size:13px">Total comprometido en cuotas (desde ${nombreMes(mesActivo)})</span>
        <div style="font-size:22px;font-weight:700;color:var(--violet);margin-top:4px">${fmt(totalRest)}</div></div>`
@@ -704,6 +805,14 @@ function renderAjustes(){
          <span style="color:var(--muted);font-size:14px">${ajFold.cuotas?'▸':'▾'}</span></div>
        <button class="btn btn-ghost" id="add-cuota" style="margin:10px 0 ${ajFold.cuotas?'0':'12px'}">＋ Agregar cuota</button>
        ${ajFold.cuotas?'':(cuotaRows||'<div class="empty" style="padding:8px">Todavía no cargaste cuotas.</div>')}</div>
+     <div class="panel"><p class="ptitle">🔒 Seguridad</p>
+       <label class="chk" style="margin-bottom:${lock.enabled?'10px':'0'}"><input type="checkbox" id="lockToggle" ${lock.enabled?"checked":""}> Bloquear la app con PIN al abrirla</label>
+       ${lock.enabled?`
+       <div id="lockBioRow" style="display:none;margin:6px 0 10px">
+         <label class="chk"><input type="checkbox" id="lockBioToggle" ${lock.cred?"checked":""}> Usar también Face ID / Touch ID</label>
+       </div>
+       <button class="btn btn-ghost" id="lockChangeBtn">Cambiar PIN</button>`:""}
+       <p style="font-size:11px;color:var(--muted);margin:8px 0 0">El bloqueo protege el acceso desde este dispositivo. No cifra el archivo de backup que descargás.</p></div>
      <div class="panel"><p class="ptitle">⚙️ Datos y backup</p>
        <button class="btn btn-ghost" id="backup" style="margin-bottom:8px">⬇️ Descargar backup (todo)</button>
        <button class="btn btn-ghost" id="importBtn" style="margin-bottom:8px">⬆️ Restaurar desde backup</button>
@@ -825,6 +934,39 @@ function renderAjustes(){
       e.target.value=""; };
     r.readAsText(file);
   };
+
+  /* ===== Seguridad: activar/desactivar PIN, cambiarlo, y togglear biometría ===== */
+  const lockToggle=$("lockToggle");
+  if(lockToggle){
+    lockToggle.onchange=()=>{
+      if(lockToggle.checked){
+        lockToggle.checked=false; // se confirma recién cuando termina el alta del PIN
+        pedirPinNuevo(()=>{ toast("Bloqueo activado ✓"); render(); });
+      } else {
+        lockToggle.checked=true; // se confirma recién si el PIN actual es correcto
+        pedirPinActual("Ingresá tu PIN para desactivar el bloqueo", ()=>{ desactivarLock(); toast("Bloqueo desactivado"); render(); });
+      }
+    };
+  }
+  const lockChangeBtn=$("lockChangeBtn");
+  if(lockChangeBtn) lockChangeBtn.onclick=()=>{
+    pedirPinActual("Ingresá tu PIN actual", ()=>{ pedirPinNuevo(()=>{ toast("PIN actualizado ✓"); render(); }); });
+  };
+  const lockBioToggle=$("lockBioToggle");
+  if(lockBioToggle){
+    lockBioToggle.onchange=async ()=>{
+      if(lockBioToggle.checked){
+        const ok=await registrarBiometria();
+        if(!ok){ lockBioToggle.checked=false; alert("No se pudo activar Face ID / Touch ID en este dispositivo."); }
+        else toast("Face ID / Touch ID activado ✓");
+      } else { lock.cred=null; save(LKEY,lock); toast("Face ID / Touch ID desactivado"); }
+    };
+    if(window.PublicKeyCredential && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable){
+      PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(disp=>{
+        const row=$("lockBioRow"); if(row) row.style.display = disp ? "" : "none";
+      });
+    }
+  }
 }
 
 function abrirModalAlta(){
@@ -871,13 +1013,17 @@ function cerrarModalDet(){ $("modalDet").classList.remove("open"); detId=null; }
 
 function exportar(){
   const c=computeMes(mesActivo), sep=";", L=[];
+  // Convierte cualquier valor a una celda CSV segura: escapa comillas internas y, si el
+  // texto empieza con = + - @ (posible fórmula para Excel/Sheets), le antepone una comilla
+  // simple para que se interprete como texto literal y no se ejecute nada al abrir el archivo.
+  const cell = s => { let t=String(s==null?"":s); if(/^[=+\-@]/.test(t)) t="'"+t; return '"'+t.replace(/"/g,'""')+'"'; };
   L.push(["Tipo","Detalle","Categoría/Tarjeta","Monto"].join(sep));
-  c.ingresos.forEach(g=>L.push(["Ingreso",'"'+g.nombre+'"',"",g.monto].join(sep)));
-  c.fijos.forEach(f=>L.push(["Fijo",'"'+f.nombre+'"',f.cat,f.monto].join(sep)));
-  c.cuotas.forEach(q=>L.push(["Cuota",'"'+q.nombre+'"',q.fuente,q.monto].join(sep)));
-  c.variables.forEach(v=>L.push(["Variable",'"'+(v.descripcion||"").replace(/"/g,'""')+'"',v.categoria,v.monto].join(sep)));
-  L.push(["","TOTAL GASTOS","",c.gasto].join(sep));
-  L.push(["","SALDO","",c.saldo].join(sep));
+  c.ingresos.forEach(g=>L.push([cell("Ingreso"),cell(g.nombre),cell(""),g.monto].join(sep)));
+  c.fijos.forEach(f=>L.push([cell("Fijo"),cell(f.nombre),cell(f.cat),f.monto].join(sep)));
+  c.cuotas.forEach(q=>L.push([cell("Cuota"),cell(q.nombre),cell(q.fuente),q.monto].join(sep)));
+  c.variables.forEach(v=>L.push([cell("Variable"),cell(v.descripcion||""),cell(v.categoria),v.monto].join(sep)));
+  L.push([cell(""),cell("TOTAL GASTOS"),cell(""),c.gasto].join(sep));
+  L.push([cell(""),cell("SALDO"),cell(""),c.saldo].join(sep));
   const csv="\uFEFF"+L.join("\r\n");
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
   a.download="gastos_"+mesActivo+".csv"; a.click(); URL.revokeObjectURL(a.href);
@@ -951,6 +1097,31 @@ $("cf-cancel").onclick=cerrarConfirm;
 $("modalConfirm").onclick=e=>{ if(e.target.id==="modalConfirm") cerrarConfirm(); };
 $("cf-ok").onclick=()=>{ const fn=_cfOk; cerrarConfirm(); if(fn) fn(); };
 
+/* ===== Modal de PIN: pedir el actual (para verificar) o pedir uno nuevo (alta/cambio) ===== */
+function abrirModalPin(titulo, sub){
+  $("pin-title").textContent=titulo; $("pin-sub").textContent=sub||""; $("pin-err").textContent="";
+  $("modalPin").classList.add("open");
+}
+function cerrarModalPin(){ $("modalPin").classList.remove("open"); }
+$("pin-x").onclick=cerrarModalPin;
+$("modalPin").onclick=e=>{ if(e.target.id==="modalPin") cerrarModalPin(); };
+function pedirPinActual(msg, onOk){
+  abrirModalPin("Confirmá tu PIN", msg);
+  setupPinEntry($("pin-pad"), $("pin-dots"), $("pin-err"), 4, async (pin, reset)=>{
+    if(await checkPin(pin)){ cerrarModalPin(); onOk(); } else reset("PIN incorrecto, probá de nuevo");
+  });
+}
+function pedirPinNuevo(onOk){
+  abrirModalPin("Elegí un PIN", "4 dígitos");
+  setupPinEntry($("pin-pad"), $("pin-dots"), $("pin-err"), 4, (pin1)=>{
+    abrirModalPin("Repetí el PIN", "Para confirmarlo");
+    setupPinEntry($("pin-pad"), $("pin-dots"), $("pin-err"), 4, async (pin2, reset2)=>{
+      if(pin1!==pin2){ reset2("No coincide, empezá de nuevo"); setTimeout(()=>pedirPinNuevo(onOk), 900); return; }
+      await setPin(pin1); cerrarModalPin(); onOk();
+    });
+  });
+}
+
 /* ===== Evitar el zoom por doble toque y por pellizco — que quede fijo (pedido 2) =====
    touch-action:manipulation (en el CSS) ya mata el double-tap-to-zoom; acá además
    cancelamos el gesto de pellizco de Safari para que el nivel de zoom no se mueva. */
@@ -1012,7 +1183,42 @@ document.addEventListener("focusin", e=>{
 });
 document.addEventListener("focusout", ()=>{ _campoPendiente=null; });
 
-render();
+/* ===== Pantalla de bloqueo: se muestra al abrir la app (si está activada) y de nuevo
+   cada vez que la app vuelve de segundo plano. No reemplaza el contenido, lo tapa
+   (overlay opaco a pantalla completa) hasta que el PIN o la biometría sean correctos. */
+let bloqueada=false;
+function mostrarLockScreen(esInicial){
+  bloqueada=true;
+  $("lockScreen").classList.add("open");
+  const padEl=$("lock-pad"), dotsEl=$("lock-dots"), errEl=$("lock-err"), bioBtn=$("lock-bio");
+  const tieneBio = !!(lock.cred && window.PublicKeyCredential);
+  bioBtn.style.display = tieneBio ? "inline-flex" : "none";
+  let intentos=0, bloqueoHasta=0, ivCount=null;
+  function desbloquear(){ $("lockScreen").classList.remove("open"); bloqueada=false; if(esInicial) render(); }
+  setupPinEntry(padEl, dotsEl, errEl, 4, (pin, reset)=>{
+    if(Date.now()<bloqueoHasta){ reset("Esperá un momento antes de volver a intentar"); return; }
+    checkPin(pin).then(ok=>{
+      if(ok){ intentos=0; desbloquear(); return; }
+      intentos++; if(navigator.vibrate) navigator.vibrate(200);
+      if(intentos>=5){
+        intentos=0; bloqueoHasta=Date.now()+30000; let restante=30;
+        clearInterval(ivCount);
+        reset("Demasiados intentos. Esperá "+restante+"s");
+        ivCount=setInterval(()=>{ restante--; if(restante<=0){ clearInterval(ivCount); errEl.textContent=""; } else errEl.textContent="Demasiados intentos. Esperá "+restante+"s"; },1000);
+      } else reset("PIN incorrecto ("+(5-intentos)+" intentos restantes)");
+    });
+  });
+  if(tieneBio){
+    bioBtn.onclick=async ()=>{ if(await autenticarBiometria()) desbloquear(); };
+    setTimeout(()=>{ if($("lockScreen").classList.contains("open")) bioBtn.click(); }, 300);
+  }
+}
+function iniciarApp(){ if(lock.enabled) mostrarLockScreen(true); else render(); }
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState==="hidden" && lock.enabled) bloqueada=true;
+  else if(document.visibilityState==="visible" && lock.enabled && bloqueada) mostrarLockScreen(false);
+});
+iniciarApp();
 
 /* ===== Aviso de "versión nueva" (pensado para tu modelo de reemplazar index.html) =====
    Como el Service Worker abre desde cache (rápido), en segundo plano chequeamos contra
