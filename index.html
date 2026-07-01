@@ -162,7 +162,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v6.7 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v6.8 · tus datos se guardan en este dispositivo.</p>
 </div>
 
 <nav class="bottomnav">
@@ -248,22 +248,21 @@
 <div id="modalInvitePush" class="modal-bg">
   <div class="modal" style="text-align:center">
     <div style="font-size:34px;margin-bottom:6px">🔔</div>
-    <strong style="font-size:16px;display:block;margin-bottom:8px">¿Te avisamos si te olvidás de cargar?</strong>
-    <p style="color:#cbd5e1;font-size:14px;line-height:1.5;margin:0 0 16px">
-      Activá recordatorios y de vez en cuando te tiramos una notificación si hace
-      días que no cargás nada, o si algo llama la atención en tus gastos del mes.
-      Nada de spam: como mucho 2 por semana, y lo podés apagar cuando quieras desde Ajustes.
+    <strong style="font-size:16px;display:block;margin-bottom:8px">No te olvides de anotar</strong>
+    <p style="color:#cbd5e1;font-size:14px;line-height:1.5;margin:0 0 6px">
+      Activá las notis y te aviso si te colgás o si la tarjeta empezó a transpirar. Un par por semana, nada más.
     </p>
+    <p style="color:#64748b;font-size:12px;margin:0 0 16px">Cero spam. Palabra de contador.</p>
     <div class="grid">
       <button class="btn btn-ghost" id="invite-no">Ahora no</button>
-      <button class="btn btn-add" id="invite-si">🔔 Activar</button>
+      <button class="btn btn-add" id="invite-si">🔔 Dale, activá</button>
     </div>
   </div>
 </div>
 
 <script>
 "use strict";
-const APP_VERSION = "6.7";
+const APP_VERSION = "6.8";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -384,6 +383,8 @@ const VAPID_PUBLIC_KEY = "BHe5al9QdWygfWL8ZnF15HY4oLqVtM9LjibaAUkTWkmdktJT5k47ub
 const RECORDATORIOS_URL = "https://mis-gastos-recordatorios.juanbautistacrespialomar.workers.dev/sync";
 const PKEY = "misGastosApp.push.v1";
 let pushPrefs = load(PKEY, {enabled:false});
+const AKEY = "misGastosApp.aperturas";
+let _aperturas = (load(AKEY,0)||0)+1; save(AKEY,_aperturas);
 
 function urlBase64ToUint8Array(base64String){
   const padding = "=".repeat((4 - base64String.length % 4) % 4);
@@ -472,6 +473,8 @@ function estaInstaladaComoApp(){
 }
 function mostrarInvitacionPush(){
   if(pushPrefs.enabled || pushPrefs.invitado) return;
+  if(_aperturas < 2) return;                                             // 1ra apertura no: esa es la del cartel de actualización
+  if($("modalUpd") && $("modalUpd").classList.contains("open")) return;  // no encimar con el cartel de "nueva versión"
   if(!estaInstaladaComoApp()) return;
   $("modalInvitePush").classList.add("open");
 }
