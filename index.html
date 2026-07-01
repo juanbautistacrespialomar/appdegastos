@@ -475,14 +475,6 @@ function mostrarInvitacionPush(){
   if(!estaInstaladaComoApp()) return;
   $("modalInvitePush").classList.add("open");
 }
-$("invite-no").onclick=()=>{ pushPrefs.invitado=true; save(PKEY,pushPrefs); $("modalInvitePush").classList.remove("open"); };
-$("invite-si").onclick=async ()=>{
-  pushPrefs.invitado=true; save(PKEY,pushPrefs);
-  $("modalInvitePush").classList.remove("open");
-  const ok = await activarRecordatorios();
-  if(ok) toast("Recordatorios activados ✓");
-  else alert("No se pudo activar.\n\nMotivo: " + (activarRecordatorios._ultimoError || "desconocido") + "\n\nMandale este texto a Claude para diagnosticar.");
-};
 
 let vista="resumen";
 let vistaPrev="resumen";
@@ -1463,6 +1455,14 @@ function aplicarUpdate(){
 $("upd-later").onclick=()=>$("modalUpd").classList.remove("open");
 $("upd-now").onclick=aplicarUpdate;
 $("modalUpd").onclick=e=>{ if(e.target.id==="modalUpd") $("modalUpd").classList.remove("open"); };
+$("invite-no").onclick=()=>{ pushPrefs.invitado=true; save(PKEY,pushPrefs); $("modalInvitePush").classList.remove("open"); };
+$("invite-si").onclick=async ()=>{
+  pushPrefs.invitado=true; save(PKEY,pushPrefs);
+  $("modalInvitePush").classList.remove("open");
+  const ok = await activarRecordatorios();
+  if(ok) toast("Recordatorios activados ✓");
+  else alert("No se pudo activar.\n\nMotivo: " + (activarRecordatorios._ultimoError || "desconocido") + "\n\nMandale este texto a Claude para diagnosticar.");
+};
 setTimeout(chequearUpdate, 1500);
 setTimeout(mostrarInvitacionPush, 2500);
 // También cuando volvés a la app (sin recargarla), por si subiste una versión mientras tanto.
