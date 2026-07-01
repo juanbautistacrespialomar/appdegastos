@@ -105,6 +105,26 @@ function proyectarFinMes(s, ctx) {
   return Math.round((s.gastoEsteMesADiaX || 0) / ctx.diaMes * diasDelMes);
 }
 
+/* ===== Mensaje especial de arranque de mes =====
+   Se manda SIEMPRE el día 1: no compite en el sorteo y se saltea el tope
+   semanal (ver main). Rota entre varias frases para no repetir todos los meses.
+   El nombre del mes se arma según la fecha. */
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const FRASES_INICIO_MES = [
+  m => `Arrancó ${m}. Reseteá el contador de "este mes me cuido"… nadie te cree, pero reseteá igual.`,
+  m => `${m}: mes nuevo, deudas viejas. Pasá a mirarlas a los ojos.`,
+  m => `Arrancó ${m} y tu billetera ya te tiene miedo. Cargá los gastos, seamos serios.`,
+  m => `Nuevo mes, misma incapacidad de ahorrar. Empecemos ${m} fingiendo que esta vez es distinto.`,
+  m => `Arrancó ${m}. El sueldo entró y ya está haciendo las valijas. Anotalo antes de que se escape.`,
+  m => `Bienvenido a ${m}. Mismo presupuesto, misma fuerza de voluntad de papel. Cargá igual.`,
+  m => `Arrancó ${m}. Prometeme que este mes el gasto hormiga no se te morfa el asado de fin de mes.`
+];
+function mensajeInicioMes(hoy) {
+  const m = MESES[hoy.getUTCMonth()];
+  const frase = FRASES_INICIO_MES[Math.floor(Math.random() * FRASES_INICIO_MES.length)];
+  return { id: "arrancoMes", texto: frase(m) };
+}
+
 function elegirMensaje(signals, hoy) {
   const s = signals || {};
   const ctx = {
@@ -144,12 +164,13 @@ async function main() {
     let record;
     try { record = JSON.parse(raw); } catch (e) { continue; }
 
-    let mensaje = elegirMensaje(record.signals, hoy);
+    const esPrimeroDeMes = hoy.getUTCDate() === 1;
+    let mensaje = esPrimeroDeMes ? mensajeInicioMes(hoy) : elegirMensaje(record.signals, hoy);
     if (!mensaje) { console.log(`${key}: nada para hoy`); continue; }
 
     // Evitar repetir exactamente la última frase enviada: si hay otras candidatas,
     // re-elegimos; si era la única posible, se manda igual (mejor eso que silencio).
-    if (record.ultimoId && mensaje.id === record.ultimoId) {
+    if (!esPrimeroDeMes && record.ultimoId && mensaje.id === record.ultimoId) {
       const ctx2 = {
         dias: diasEntre((record.signals||{}).ultimaCarga, hoy),
         diaMes: hoy.getUTCDate(), diaSemana: hoy.getUTCDay(),
@@ -163,7 +184,7 @@ async function main() {
     }
 
     // Respetar el tope semanal antes de mandar nada.
-    if (!dentroDelTope(record.enviados, hoy)) {
+    if (!esPrimeroDeMes && !dentroDelTope(record.enviados, hoy)) {
       console.log(`${key}: hay mensaje ("${mensaje.texto}") pero ya llegó al tope de ${MAX_POR_VENTANA}/${VENTANA_DIAS}d — se omite`);
       continue;
     }
