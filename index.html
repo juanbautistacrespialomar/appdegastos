@@ -162,7 +162,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v6.6 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v6.7 · tus datos se guardan en este dispositivo.</p>
 </div>
 
 <nav class="bottomnav">
@@ -181,7 +181,7 @@
   <div class="modal">
     <div class="row between" style="margin-bottom:10px"><strong id="m-title">Nuevo gasto variable</strong><button id="m-close" class="del" style="font-size:20px">✕</button></div>
     <div class="grid">
-      <input class="full" type="text" inputmode="decimal" id="q-monto" placeholder="Monto ($)  ej: 1234,50">
+      <input class="full js-money" type="text" inputmode="decimal" id="q-monto" placeholder="Monto ($)  ej: 1234,50">
       <select id="q-cat"></select>
       <div class="combo" id="q-medio-wrap">
         <input type="text" id="q-medio" placeholder="Forma de pago — escribí o elegí" autocomplete="off">
@@ -263,7 +263,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.6";
+const APP_VERSION = "6.7";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -282,7 +282,7 @@ const mem={};
 function load(k,def){ try{const r=localStorage.getItem(k); return r?JSON.parse(r):def;}catch(e){ return (k in mem)?mem[k]:def; } }
 function save(k,v){ mem[k]=v; try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 
-function parseMonto(v){ v=String(v).trim(); if(!v) return NaN; if(v.indexOf(",")>=0) v=v.replace(/\./g,"").replace(",","."); return parseFloat(v); }
+function parseMonto(v){ v=String(v).trim(); if(!v) return NaN; v=v.replace(/\./g,"").replace(",","."); return parseFloat(v); }
 function migrarCat(c){ return c==="Salidas/Asados" ? "Salidas/Comidas" : c; }
 
 function normConfig(c){
@@ -489,7 +489,33 @@ let fTexto="", fCat="__todas", fMedio="__todos";
 const $ = id => document.getElementById(id);
 const fmt = n => oculto ? "$ •••••" : new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0}).format(Math.round(n)||0);
 const fmtN = n => oculto ? "•••••" : new Intl.NumberFormat("es-AR").format(n);
-const hoy = () => new Date().toISOString().slice(0,10);
+/* ===== Separador de miles en los campos de monto mientras se escribe =====
+   "169998" -> "169.998" en vivo. La coma queda como decimal (es-AR). parseMonto
+   ya saca los puntos, así que lo que se guarda sigue siendo un número limpio. */
+function fmtMoneyStr(v){
+  v = String(v==null?"":v).replace(/[^\d,]/g,"");
+  const i = v.indexOf(",");
+  let ent = (i>=0 ? v.slice(0,i) : v).replace(/,/g,"");
+  let dec = (i>=0 ? v.slice(i+1) : "").replace(/,/g,"").slice(0,2);
+  ent = ent.replace(/^0+(?=\d)/,"");
+  const entFmt = ent.replace(/\B(?=(\d{3})+(?!\d))/g,".");
+  return i>=0 ? (entFmt||"0")+","+dec : entFmt;
+}
+function formatMoneyInput(el){
+  const antes = el.value;
+  const caret = el.selectionStart==null ? antes.length : el.selectionStart;
+  const digitosAntes = (antes.slice(0,caret).match(/\d/g)||[]).length;
+  const nuevo = fmtMoneyStr(antes);
+  if(nuevo===antes) return;
+  el.value = nuevo;
+  let vistos=0, pos=nuevo.length;
+  for(let k=0;k<nuevo.length;k++){ if(/\d/.test(nuevo[k])) vistos++; if(vistos>=digitosAntes){ pos=k+1; break; } }
+  try{ el.setSelectionRange(pos,pos); }catch(e){}
+}
+document.addEventListener("input", e=>{
+  if(e.target && e.target.classList && e.target.classList.contains("js-money")) formatMoneyInput(e.target);
+});
+const hoy = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const nombreMes = ym => { const [y,m]=ym.split("-"); return MESES[+m-1]+" "+y; };
 function ymAdd(ym,k){ const [y,m]=ym.split("-").map(Number); const d=new Date(y,m-1+k,1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
 function ymDiff(a,b){ const [ay,am]=a.split("-").map(Number),[by,bm]=b.split("-").map(Number); return (by-ay)*12+(bm-am); }
@@ -870,7 +896,7 @@ function renderAjustes(){
     const lblMes   = once ? "Mes del ingreso" : "Aplicar desde";
     return `<div class="crow">
       <div class="full"><label>Nombre del ingreso</label><input class="mini" data-t="ingreso" data-i="${i}" data-k="n" value="${esc(g.n)}" placeholder="Ej: Sueldo, Freelance…"></div>
-      <div class="full"><label>${lblMonto}</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-imonto="${i}" value="${m}"></div>
+      <div class="full"><label>${lblMonto}</label><input class="mini js-money${oculto?' masked':''}" type="text" inputmode="decimal" data-imonto="${i}" value="${fmtMoneyStr(m)}"></div>
       <div class="full"><label class="chk"><input type="checkbox" data-ionce="${i}" ${once?"checked":""}> Solo este mes (no se repite — ej: aguinaldo, factura única)</label></div>
       <div class="full"><label>${lblMes}</label>${desdeSel('i',i,mesActivo)}</div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
@@ -887,7 +913,7 @@ function renderAjustes(){
     return `<div class="crow">
       <div class="full"><label>Gasto fijo</label><input class="mini" data-t="fijo" data-i="${i}" data-k="n" value="${esc(f.n)}" placeholder="Ej: Alquiler, Luz, Netflix…"></div>
       <div><label>Categoría</label><select class="mini" data-t="fijo" data-i="${i}" data-k="cat">${catOpts(f.cat)}</select></div>
-      <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-fmonto="${i}" value="${montoActual}"></div>
+      <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini js-money${oculto?' masked':''}" type="text" inputmode="decimal" data-fmonto="${i}" value="${fmtMoneyStr(montoActual)}"></div>
       <div class="full"><label>Aplicar cambio desde</label>${desdeSel('f',i,mesActivo)}</div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
         <button class="btn btn-add mini" data-savefijo="${i}" style="flex:1">💾 Guardar</button>
@@ -900,7 +926,7 @@ function renderAjustes(){
       <div><label>Mes 1ª cuota</label><div style="display:flex;gap:4px">${mesSel(i,+q.d.split("-")[1])}${anioSel(i,+q.d.split("-")[0])}</div></div>
       <div><label>Total cuotas</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="t" value="${q.t}"></div>
       <div><label>Cuota en ${histLabel(q.d)}</label><input class="mini" type="number" data-t="cuota" data-i="${i}" data-k="c" value="${q.c}"></div>
-      <div><label>Total de la compra ($)</label><input class="mini${oculto?' masked':''}" type="text" inputmode="decimal" data-ctotal="${i}" value="${q.tot||''}"></div>
+      <div><label>Total de la compra ($)</label><input class="mini js-money${oculto?' masked':''}" type="text" inputmode="decimal" data-ctotal="${i}" value="${fmtMoneyStr(q.tot||'')}"></div>
       <div class="full"><label>$ por cuota (calculado)</label><input class="mini" type="text" value="${fmtN(q.m||0)}" readonly tabindex="-1" style="opacity:.55;background:var(--card);cursor:not-allowed"></div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
         <button class="btn btn-add mini" data-savecuota="${i}" style="flex:1">💾 Guardar</button>
@@ -1118,7 +1144,7 @@ function abrirModalAlta(){
 function abrirModalEdit(id){
   const v=mov.find(x=>x.id===id); if(!v) return;
   editId=id; $("m-title").textContent="Editar gasto";
-  $("q-monto").value=v.monto;
+  $("q-monto").value=fmtMoneyStr(v.monto);
   $("q-cat").value=v.categoria;
   $("q-medio").value=v.medio||"";
   $("q-fecha").value=v.fecha;
@@ -1271,7 +1297,7 @@ document.addEventListener("gesturestart", e=>e.preventDefault(), {passive:false}
    --appvh = alto visible (para el max-height del modal, que así scrollea interno)
    --kb    = alto del teclado (para subir el bottom-sheet por encima de él).
    Con esto el cartel queda arriba del teclado y el contenido no queda tapado. */
-let _campoPendiente=null, _focusTimer=null;
+let _campoPendiente=null, _focusTimer=null, _campoFocuseado=false;
 function ajustarVV(){
   const vv = window.visualViewport;
   const h  = vv ? vv.height : window.innerHeight;
@@ -1281,7 +1307,7 @@ function ajustarVV(){
   root.style.setProperty("--kb", kb + "px");
   // Teclado abierto: escondemos la bottomnav y el FAB (usamos un umbral para no
   // confundir la barra de URL de Safari con el teclado real).
-  document.body.classList.toggle("kb-open", kb > 120);
+  document.body.classList.toggle("kb-open", _campoFocuseado || kb > 120);
   // Si justo apareció el teclado y hay un campo de la página esperando, lo subimos (una vez).
   if(_campoPendiente && kb>0){ asegurarVisible(_campoPendiente); _campoPendiente=null; }
 }
@@ -1291,6 +1317,21 @@ if(window.visualViewport){
 }
 window.addEventListener("orientationchange", ()=>setTimeout(ajustarVV,200));
 ajustarVV();
+
+/* La barra inferior + FAB se esconden apenas se enfoca cualquier campo. No dependemos
+   solo de medir el teclado, porque en pantallas scrolleadas el offsetTop despistaba la
+   medición y la barra reaparecía flotando encima del teclado. */
+document.addEventListener("focusin", e=>{
+  if(e.target && e.target.matches && e.target.matches("input, textarea, select")){
+    _campoFocuseado = true; document.body.classList.add("kb-open");
+  }
+});
+document.addEventListener("focusout", e=>{
+  if(e.target && e.target.matches && e.target.matches("input, textarea, select")){
+    _campoFocuseado = false;
+    setTimeout(()=>{ if(!_campoFocuseado) ajustarVV(); }, 120);
+  }
+});
 
 /* ===== iOS: que el teclado no tape lo que escribís en las PANTALLAS (Ajustes, etc.) =====
    En los modales ya está resuelto (bottom-sheet + --kb). Pero las filas de cuotas/fijos/
