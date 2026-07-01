@@ -386,7 +386,7 @@ async function activarRecordatorios(){
     pushPrefs.enabled=true; save(PKEY,pushPrefs);
     await sincronizarRecordatorios(sub, true);
     return true;
-  }catch(e){ console.warn("No se pudo activar recordatorios:", e); return false; }
+  }catch(e){ console.warn("No se pudo activar recordatorios:", e); activarRecordatorios._ultimoError = (e && (e.name+": "+e.message)) || String(e); return false; }
 }
 async function desactivarRecordatorios(){
   pushPrefs.enabled=false; save(PKEY,pushPrefs);
@@ -1023,7 +1023,7 @@ function renderAjustes(){
         pushToggle.checked=false;
         const ok=await activarRecordatorios();
         if(ok){ pushToggle.checked=true; toast("Recordatorios activados ✓"); }
-        else alert("No se pudo activar. Revisá que le diste permiso de notificaciones a la app.");
+        else alert("No se pudo activar.\n\nMotivo: " + (activarRecordatorios._ultimoError || "desconocido") + "\n\nMandale este texto a Claude para diagnosticar.");
       } else {
         await desactivarRecordatorios();
         toast("Recordatorios desactivados");
