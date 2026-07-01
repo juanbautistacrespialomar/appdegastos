@@ -19,8 +19,13 @@
     --txt:#f1f5f9; --muted:#64748b; --green:#10b981; --amber:#f59e0b; --sky:#38bdf8; --red:#f87171; --violet:#a855f7;
   }
   html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-  body { min-height:100dvh; box-sizing:border-box; padding-top:env(safe-area-inset-top); }
-  .wrap { width:100%; max-width:600px; margin:0 auto; box-sizing:border-box; padding:16px 16px calc(80px + env(safe-area-inset-bottom) + var(--kb,0px)); transition:padding-bottom .15s ease; }
+  /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
+     puede hacer su auto-scroll caótico de la página — el mismo motivo por el que el modal anda bien. */
+  body { height:100dvh; overflow:hidden; box-sizing:border-box; }
+  /* .wrap ES el scroller de la app: altura = área realmente visible (--vv-h, que se achica cuando
+     sube el teclado). Con el body bloqueado, el scroll de todo el contenido pasa por acá, dentro de
+     un alto controlado. Por eso scrollIntoView puede centrar bien un campo sin que iOS lo pise. */
+  .wrap { width:100%; max-width:600px; margin:0 auto; box-sizing:border-box; height:var(--vv-h,100dvh); overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:calc(16px + env(safe-area-inset-top)) 16px calc(80px + env(safe-area-inset-bottom) + var(--kb,0px)); transition:height .12s ease; }
   .row { display:flex; align-items:center; }
   .between { justify-content:space-between; }
   h1 { font-size:20px; margin:0; }
@@ -86,6 +91,9 @@
   .combo-opt:hover, .combo-opt:active { background:#334155; }
   .combo-empty { padding:11px 12px; font-size:13px; color:var(--muted); }
   input:focus,select:focus { outline:none; border-color:var(--green); }
+  /* Respiro para scrollIntoView: al centrar/acercar un campo, que quede separado del teclado
+     y del borde de arriba, no pegado. */
+  input, select, textarea { scroll-margin-top:100px; scroll-margin-bottom:100px; }
   .btn-add { background:var(--green); padding:11px; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; gap:6px; }
   .btn-add:active { background:#059669; }
   .crow { display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--card2); border-radius:10px; padding:8px; margin-bottom:8px; }
@@ -167,7 +175,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v6.14 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot" id="footVer">Mis Gastos · tus datos se guardan en este dispositivo.</p>
 </div>
 
 <nav class="bottomnav">
@@ -267,7 +275,8 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.17";
+const APP_VERSION = "6.18";
+try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -1217,7 +1226,7 @@ $("prevMonth").onclick=()=>{ mesActivo=ymAdd(mesActivo,-1); render(); };
 $("nextMonth").onclick=()=>{ mesActivo=ymAdd(mesActivo,1); render(); };
 $("exportBtn").onclick=exportar;
 $("eyeBtn").onclick=()=>{ oculto=!oculto; render(); };
-document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ if(vista===t.dataset.v){ window.scrollTo({top:0,behavior:"smooth"}); return; } vista=t.dataset.v; render(); });
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ if(vista===t.dataset.v){ const w=document.querySelector(".wrap"); (w||window).scrollTo({top:0,behavior:"smooth"}); return; } vista=t.dataset.v; render(); });
 
 $("q-cat").innerHTML = CATS.map(c=>`<option>${c}</option>`).join("");
 setupCombo($("q-medio"), formasDePago, null);   // medio de pago del gasto variable: input editable + sugerencias
@@ -1319,7 +1328,7 @@ document.addEventListener("gesturestart", e=>e.preventDefault(), {passive:false}
    El overlay del modal se ancla a (--vv-top, --vv-h): así ocupa EXACTO lo que se ve y el
    bottom-sheet queda pegado arriba del teclado, sin el doble descuento que antes lo hacía
    escapar por arriba. El contenido que no entra scrollea dentro del propio modal. */
-let _campoActivo=null, _centrarTimer=null, _campoFocuseado=false;
+let _campoActivo=null, _centrarTimer=null, _campoFocuseado=false, _yaCentre=false;
 function ajustarVV(){
   const vv = window.visualViewport;
   const h  = vv ? vv.height : window.innerHeight;
@@ -1346,12 +1355,16 @@ if(window.visualViewport){
 window.addEventListener("orientationchange", ()=>setTimeout(ajustarVV,200));
 ajustarVV();
 
-/* Un ÚNICO centrado, tras un respiro sin cambios de teclado (debounce). Cada resize del teclado
-   reinicia el reloj; cuando pasan ~250ms sin movimiento, damos por asentado el teclado (y el
-   auto-scroll de iOS ya terminó) y recién ahí scrolleamos, ganando la última palabra. */
+/* Un ÚNICO centrado por foco, tras un respiro sin cambios de teclado (debounce). Cada resize del
+   teclado reinicia el reloj; cuando pasan ~250ms sin movimiento, damos por asentado el teclado y
+   recién ahí centramos. El candado _yaCentre evita que, una vez centrado, un nuevo resize (que en
+   iOS también dispara al scrollear con la barra de Safari) nos haga re-centrar: por eso antes, al
+   scrollear con la mano, la vista "se volvía para arriba". Ahora, una vez ubicado, te dejamos
+   scrollear libre. Al cambiar de campo, el focusin resetea el candado. */
 function pedirCentrado(){
+  if(_yaCentre) return;
   clearTimeout(_centrarTimer);
-  _centrarTimer = setTimeout(()=>{ if(_campoActivo) asegurarVisible(_campoActivo); }, 250);
+  _centrarTimer = setTimeout(()=>{ if(_campoActivo){ asegurarVisible(_campoActivo); _yaCentre=true; } }, 250);
 }
 
 /* La barra inferior + FAB se esconden apenas se enfoca cualquier campo. No dependemos
@@ -1362,6 +1375,7 @@ document.addEventListener("focusin", e=>{
   if(!el || !el.matches || !el.matches("input, textarea, select")) return;
   _campoActivo = el;
   _campoFocuseado = true;
+  _yaCentre = false;              // campo nuevo: permitimos un (1) centrado
   document.body.classList.add("kb-open");
   pedirCentrado();     // se reprograma con cada resize del teclado y corre al asentarse
 });
@@ -1373,40 +1387,16 @@ document.addEventListener("focusout", e=>{
   }
 });
 
-/* ===== iOS: que el teclado no tape (ni "escape" hacia arriba) lo que estás editando =====
-   Sirve para los dos casos: el campo activo del MODAL de gasto (que scrollea internamente)
-   y las filas de cuotas/fijos/ingresos que viven en la PÁGINA normal. El teclado de iOS se
-   superpone (no empuja el layout), así que medimos el área realmente visible con
-   visualViewport y, si el campo quedó tapado abajo o escapado arriba, lo dejamos CENTRADO.
-
-   CLAVE: scrolleamos a una posición ABSOLUTA (scrollTo), no relativa (scrollBy). Esta función
-   se dispara varias veces por foco (al enfocar, cuando sube el teclado, y con reintentos): con
-   scrollBy + smooth los deltas se calculaban sobre una posición que todavía se estaba moviendo
-   y se acumulaban, así que la vista oscilaba (se veía la cuota de arriba mientras el campo
-   quedaba tapado). Con scrollTo absoluto todas las llamadas apuntan al mismo destino y
-   convergen. La posición absoluta del campo es invariante al scroll, por eso es estable. */
+/* ===== iOS: que el teclado no tape lo que estás editando =====
+   Dejamos que el NAVEGADOR haga el centrado con scrollIntoView. Él sabe cuál es el contenedor
+   scrolleable del campo (el .modal si vive en el modal de gasto, o la página en Ajustes) y cuánto
+   espacio real deja el teclado — mucho mejor que los cálculos manuales con visualViewport, que en
+   iOS venían frágiles (el campo terminaba tapado) y peleaban con el auto-scroll nativo. Un solo
+   intento, instantáneo, disparado cuando el teclado ya se asentó (ver pedirCentrado). */
 function asegurarVisible(el){
   if(!el) return;
-  const modalCont = el.closest ? el.closest(".modal") : null;   // si vive en un modal, ese modal es el que scrollea
-  const vv = window.visualViewport;
-  const topVis = vv ? vv.offsetTop : 0;
-  const visH   = vv ? vv.height : window.innerHeight;
-  const r = el.getBoundingClientRect();
-  const margen = 24;                          // respiro respecto al teclado y al borde de arriba
-  // Solo lo movemos si está tapado por el teclado (abajo) o se escapó por arriba.
-  if(r.bottom <= topVis + visH - margen && r.top >= topVis + margen) return;
-  const centroVisible = topVis + visH/2;
-  if(modalCont){
-    // scroll INTERNO del modal (el body está bloqueado, iOS no pelea acá): smooth queda lindo
-    const rc = modalCont.getBoundingClientRect();
-    const destino = modalCont.scrollTop + (r.top + r.height/2 - rc.top) - visH/2;
-    modalCont.scrollTo({ top: Math.max(0, destino), behavior:"smooth" });
-  } else {
-    // scroll de la PÁGINA: INSTANTÁNEO a propósito. Como corre una sola vez y con el teclado ya
-    // asentado, un salto atómico deja el campo centrado sin darle a iOS una ventana para re-scrollear.
-    const centroAbsoluto = window.scrollY + r.top + r.height/2;   // invariante al scroll
-    window.scrollTo({ top: Math.max(0, centroAbsoluto - centroVisible), behavior:"auto" });
-  }
+  try { el.scrollIntoView({ block:"center", inline:"nearest" }); }
+  catch(e){ el.scrollIntoView(); }
 }
 /* El foco de un campo lo maneja el focusin de más arriba (setea _campoActivo y dispara el
    debounce de centrado). No agregamos más listeners de foco acá: un solo camino, sin scrolls
