@@ -104,7 +104,7 @@ self.addEventListener("message", e => {
 
 /* ===== Push: recordatorios diarios =====
    El payload que manda el Worker (vía GitHub Actions) es JSON: { body, tag }.
-   Título fijo corto ("💰 Mis Gastos") y la frase completa en el cuerpo, que iOS
+   Título fijo corto ("💰 Hallazgo del día") y la frase completa en el cuerpo, que iOS
    expande a varias líneas (a diferencia del título, que va en una sola). El logo
    lo toma del ícono de la PWA (icon-192.png). */
 self.addEventListener("push", e => {
@@ -119,7 +119,7 @@ self.addEventListener("push", e => {
     renotify: true,
     data: { url: "./" }
   };
-  e.waitUntil(self.registration.showNotification("💰 Mis Gastos", options));
+  e.waitUntil(self.registration.showNotification("💰 Hallazgo del día", options));
 });
 
 self.addEventListener("notificationclick", e => {

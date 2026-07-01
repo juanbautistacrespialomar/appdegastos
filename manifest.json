@@ -1,6 +1,6 @@
 {
   "name": "Mis Gastos",
-  "short_name": "Gastos",
+  "short_name": "Tu Contador",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
