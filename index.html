@@ -44,6 +44,7 @@
      flotando encima del teclado, la mandamos abajo (fuera de pantalla). El FAB también. */
   body.kb-open .bottomnav { transform:translateY(120%); }
   body.kb-open #fab { transform:translateY(220%); opacity:0; pointer-events:none; }
+  body.kb-open .wrap { padding-bottom:55vh; }
   .bottomnav-inner { max-width:600px; margin:0 auto; display:flex; position:relative; }
   .tab { flex:1; position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 4px 8px; background:none; border:none; cursor:pointer; color:var(--muted); font:inherit; font-size:10px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; transition:color .25s; }
   .tab svg { width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
@@ -162,7 +163,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v6.11 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v6.12 · tus datos se guardan en este dispositivo.</p>
 </div>
 
 <nav class="bottomnav">
@@ -262,7 +263,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.11";
+const APP_VERSION = "6.12";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -1374,6 +1375,7 @@ document.addEventListener("focusin", e=>{
   asegurarVisible(el);                        // caso: cambio de campo con teclado ya abierto
   clearTimeout(_focusTimer);
   _focusTimer = setTimeout(()=>asegurarVisible(el), 350); // fallback por si no dispara el resize
+  setTimeout(()=>asegurarVisible(el), 600);   // reintento tras asentarse teclado + pista de scroll
 });
 document.addEventListener("focusout", ()=>{ _campoPendiente=null; });
 
