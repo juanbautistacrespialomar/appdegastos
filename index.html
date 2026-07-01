@@ -25,7 +25,7 @@
   /* .wrap ES el scroller de la app: altura = área realmente visible (--vv-h, que se achica cuando
      sube el teclado). Con el body bloqueado, el scroll de todo el contenido pasa por acá, dentro de
      un alto controlado. Por eso scrollIntoView puede centrar bien un campo sin que iOS lo pise. */
-  .wrap { width:100%; max-width:600px; margin:0 auto; box-sizing:border-box; height:var(--vv-h,100dvh); overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:calc(16px + env(safe-area-inset-top)) 16px calc(80px + env(safe-area-inset-bottom) + var(--kb,0px)); transition:height .12s ease; }
+  .wrap { width:100%; max-width:600px; margin:0 auto; box-sizing:border-box; height:var(--vv-h,100dvh); overflow-y:auto; overscroll-behavior:contain; padding:calc(16px + env(safe-area-inset-top)) 16px calc(80px + env(safe-area-inset-bottom) + var(--kb,0px)); }
   .row { display:flex; align-items:center; }
   .between { justify-content:space-between; }
   h1 { font-size:20px; margin:0; }
@@ -275,7 +275,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.18";
+const APP_VERSION = "6.19";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
@@ -1364,7 +1364,7 @@ ajustarVV();
 function pedirCentrado(){
   if(_yaCentre) return;
   clearTimeout(_centrarTimer);
-  _centrarTimer = setTimeout(()=>{ if(_campoActivo){ asegurarVisible(_campoActivo); _yaCentre=true; } }, 250);
+  _centrarTimer = setTimeout(()=>{ if(_campoActivo){ asegurarVisible(_campoActivo); _yaCentre=true; } }, 180);
 }
 
 /* La barra inferior + FAB se esconden apenas se enfoca cualquier campo. No dependemos
@@ -1395,7 +1395,7 @@ document.addEventListener("focusout", e=>{
    intento, instantáneo, disparado cuando el teclado ya se asentó (ver pedirCentrado). */
 function asegurarVisible(el){
   if(!el) return;
-  try { el.scrollIntoView({ block:"center", inline:"nearest" }); }
+  try { el.scrollIntoView({ block:"center", inline:"nearest", behavior:"smooth" }); }
   catch(e){ el.scrollIntoView(); }
 }
 /* El foco de un campo lo maneja el focusin de más arriba (setea _campoActivo y dispara el
