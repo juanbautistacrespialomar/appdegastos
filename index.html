@@ -162,7 +162,7 @@
   </div>
 
   <div id="content"></div>
-  <p class="foot">Mis Gastos v6.10 · tus datos se guardan en este dispositivo.</p>
+  <p class="foot">Mis Gastos v6.11 · tus datos se guardan en este dispositivo.</p>
 </div>
 
 <nav class="bottomnav">
@@ -262,7 +262,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.10";
+const APP_VERSION = "6.11";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -1315,7 +1315,7 @@ let _campoPendiente=null, _focusTimer=null, _campoFocuseado=false;
 function ajustarVV(){
   const vv = window.visualViewport;
   const h  = vv ? vv.height : window.innerHeight;
-  const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+  const kb = vv ? Math.max(0, window.innerHeight - vv.height) : 0;
   const root = document.documentElement;
   root.style.setProperty("--appvh", h + "px");
   root.style.setProperty("--kb", kb + "px");
@@ -1338,10 +1338,6 @@ ajustarVV();
 document.addEventListener("focusin", e=>{
   if(e.target && e.target.matches && e.target.matches("input, textarea, select")){
     _campoFocuseado = true; document.body.classList.add("kb-open");
-    if(e.target.matches("input:not([type=checkbox]):not([type=radio]), textarea")){
-      const el=e.target;
-      setTimeout(()=>{ try{ el.scrollIntoView({block:"center", behavior:"smooth"}); }catch(_){} }, 300);
-    }
   }
 });
 document.addEventListener("focusout", e=>{
