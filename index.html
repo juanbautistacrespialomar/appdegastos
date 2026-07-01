@@ -267,7 +267,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.15";
+const APP_VERSION = "6.16";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -1362,8 +1362,14 @@ document.addEventListener("focusout", e=>{
    Sirve para los dos casos: el campo activo del MODAL de gasto (que scrollea internamente)
    y las filas de cuotas/fijos/ingresos que viven en la PÁGINA normal. El teclado de iOS se
    superpone (no empuja el layout), así que medimos el área realmente visible con
-   visualViewport y, si el campo quedó tapado abajo o escapado arriba, lo dejamos CENTRADO
-   moviendo el scroll que corresponda (el del modal si vive ahí, el de la página si no). */
+   visualViewport y, si el campo quedó tapado abajo o escapado arriba, lo dejamos CENTRADO.
+
+   CLAVE: scrolleamos a una posición ABSOLUTA (scrollTo), no relativa (scrollBy). Esta función
+   se dispara varias veces por foco (al enfocar, cuando sube el teclado, y con reintentos): con
+   scrollBy + smooth los deltas se calculaban sobre una posición que todavía se estaba moviendo
+   y se acumulaban, así que la vista oscilaba (se veía la cuota de arriba mientras el campo
+   quedaba tapado). Con scrollTo absoluto todas las llamadas apuntan al mismo destino y
+   convergen. La posición absoluta del campo es invariante al scroll, por eso es estable. */
 function asegurarVisible(el){
   if(!el) return;
   const modalCont = el.closest ? el.closest(".modal") : null;   // si vive en un modal, ese modal es el que scrollea
@@ -1372,14 +1378,18 @@ function asegurarVisible(el){
   const visH   = vv ? vv.height : window.innerHeight;
   const r = el.getBoundingClientRect();
   const margen = 24;                          // respiro respecto al teclado y al borde de arriba
-  // Cuánto habría que scrollear para dejar el campo CENTRADO dentro del área visible.
-  const centrar = (r.top + r.height/2) - (topVis + visH/2);
-  const scroll = d => modalCont
-    ? modalCont.scrollBy({ top:d, behavior:"smooth" })
-    : window.scrollBy({ top:d, behavior:"smooth" });
   // Solo lo movemos si está tapado por el teclado (abajo) o se escapó por arriba.
-  if(r.bottom > topVis + visH - margen || r.top < topVis + margen){
-    scroll(centrar);
+  if(r.bottom <= topVis + visH - margen && r.top >= topVis + margen) return;
+  const centroVisible = topVis + visH/2;
+  if(modalCont){
+    // scroll INTERNO del modal, a posición absoluta que centra el campo
+    const rc = modalCont.getBoundingClientRect();
+    const destino = modalCont.scrollTop + (r.top + r.height/2 - rc.top) - visH/2;
+    modalCont.scrollTo({ top: Math.max(0, destino), behavior:"smooth" });
+  } else {
+    // scroll de la PÁGINA a posición absoluta que centra el campo en el área visible
+    const centroAbsoluto = window.scrollY + r.top + r.height/2;   // invariante al scroll
+    window.scrollTo({ top: Math.max(0, centroAbsoluto - centroVisible), behavior:"smooth" });
   }
 }
 document.addEventListener("focusin", e=>{
