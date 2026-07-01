@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Mis Gastos</title>
 <meta name="theme-color" content="#020617">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; object-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://mis-gastos-recordatorios.juanbautistacrespialomar.workers.dev; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; object-src 'none';">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -244,6 +244,23 @@
   </div>
 </div>
 
+<!-- Invitación (única vez por dispositivo) a activar recordatorios -->
+<div id="modalInvitePush" class="modal-bg">
+  <div class="modal" style="text-align:center">
+    <div style="font-size:34px;margin-bottom:6px">🔔</div>
+    <strong style="font-size:16px;display:block;margin-bottom:8px">¿Te avisamos si te olvidás de cargar?</strong>
+    <p style="color:#cbd5e1;font-size:14px;line-height:1.5;margin:0 0 16px">
+      Activá recordatorios y de vez en cuando te tiramos una notificación si hace
+      días que no cargás nada, o si algo llama la atención en tus gastos del mes.
+      Nada de spam: como mucho 2 por semana, y lo podés apagar cuando quieras desde Ajustes.
+    </p>
+    <div class="grid">
+      <button class="btn btn-ghost" id="invite-no">Ahora no</button>
+      <button class="btn btn-add" id="invite-si">🔔 Activar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 "use strict";
 const APP_VERSION = "6.6";
@@ -384,7 +401,12 @@ async function activarRecordatorios(){
     let sub = await reg.pushManager.getSubscription();
     if(!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
     pushPrefs.enabled=true; save(PKEY,pushPrefs);
-    await sincronizarRecordatorios(sub, true);
+    const syncOk = await sincronizarRecordatorios(sub, true);
+    if(!syncOk){
+      pushPrefs.enabled=false; save(PKEY,pushPrefs);
+      activarRecordatorios._ultimoError = "No se pudo avisar al servidor (" + (sincronizarRecordatorios._ultimoError || "sin detalle") + ")";
+      return false;
+    }
     return true;
   }catch(e){ console.warn("No se pudo activar recordatorios:", e); activarRecordatorios._ultimoError = (e && (e.name+": "+e.message)) || String(e); return false; }
 }
@@ -419,19 +441,48 @@ function calcularSignals(){
 }
 let _ultimoSyncTs=0;
 async function sincronizarRecordatorios(subOpcional, forzar){
-  if(!pushPrefs.enabled) return;
-  if(!forzar && Date.now()-_ultimoSyncTs < 60000) return;
+  if(!pushPrefs.enabled) return true;
+  if(!forzar && Date.now()-_ultimoSyncTs < 60000) return true;
   try{
     const reg = await navigator.serviceWorker.ready;
     const sub = subOpcional || await reg.pushManager.getSubscription();
-    if(!sub) return;
+    if(!sub) return true;
     _ultimoSyncTs = Date.now();
-    await fetch(RECORDATORIOS_URL, {
+    const res = await fetch(RECORDATORIOS_URL, {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ subscription: sub.toJSON(), signals: calcularSignals() })
     });
-  }catch(e){ console.warn("No se pudo sincronizar recordatorios:", e); }
+    if(!res.ok) throw new Error("El servidor respondió " + res.status);
+    return true;
+  }catch(e){
+    console.warn("No se pudo sincronizar recordatorios:", e);
+    sincronizarRecordatorios._ultimoError = (e && (e.name+": "+e.message)) || String(e);
+    return false;
+  }
 }
+
+/* ===== Invitación (una sola vez por dispositivo) a activar recordatorios =====
+   Solo se ofrece si el push realmente puede funcionar ahí (instalada en pantalla
+   de inicio, no en una pestaña de Safari). Si tocan "Ahora no" o "Activar", se
+   marca pushPrefs.invitado=true y no se vuelve a mostrar nunca más. */
+function estaInstaladaComoApp(){
+  const standalone = window.navigator.standalone === true ||
+    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  return ("serviceWorker" in navigator) && ("PushManager" in window) && standalone;
+}
+function mostrarInvitacionPush(){
+  if(pushPrefs.enabled || pushPrefs.invitado) return;
+  if(!estaInstaladaComoApp()) return;
+  $("modalInvitePush").classList.add("open");
+}
+$("invite-no").onclick=()=>{ pushPrefs.invitado=true; save(PKEY,pushPrefs); $("modalInvitePush").classList.remove("open"); };
+$("invite-si").onclick=async ()=>{
+  pushPrefs.invitado=true; save(PKEY,pushPrefs);
+  $("modalInvitePush").classList.remove("open");
+  const ok = await activarRecordatorios();
+  if(ok) toast("Recordatorios activados ✓");
+  else alert("No se pudo activar.\n\nMotivo: " + (activarRecordatorios._ultimoError || "desconocido") + "\n\nMandale este texto a Claude para diagnosticar.");
+};
 
 let vista="resumen";
 let vistaPrev="resumen";
@@ -1413,6 +1464,7 @@ $("upd-later").onclick=()=>$("modalUpd").classList.remove("open");
 $("upd-now").onclick=aplicarUpdate;
 $("modalUpd").onclick=e=>{ if(e.target.id==="modalUpd") $("modalUpd").classList.remove("open"); };
 setTimeout(chequearUpdate, 1500);
+setTimeout(mostrarInvitacionPush, 2500);
 // También cuando volvés a la app (sin recargarla), por si subiste una versión mientras tanto.
 document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") chequearUpdate(); });
 </script>
