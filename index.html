@@ -267,7 +267,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.16";
+const APP_VERSION = "6.17";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -1319,7 +1319,7 @@ document.addEventListener("gesturestart", e=>e.preventDefault(), {passive:false}
    El overlay del modal se ancla a (--vv-top, --vv-h): así ocupa EXACTO lo que se ve y el
    bottom-sheet queda pegado arriba del teclado, sin el doble descuento que antes lo hacía
    escapar por arriba. El contenido que no entra scrollea dentro del propio modal. */
-let _campoPendiente=null, _focusTimer=null, _campoFocuseado=false;
+let _campoActivo=null, _centrarTimer=null, _campoFocuseado=false;
 function ajustarVV(){
   const vv = window.visualViewport;
   const h  = vv ? vv.height : window.innerHeight;
@@ -1333,27 +1333,42 @@ function ajustarVV(){
   // Teclado abierto: escondemos la bottomnav y el FAB (usamos un umbral para no
   // confundir la barra de URL de Safari con el teclado real).
   document.body.classList.toggle("kb-open", _campoFocuseado || kb > 120);
-  // Si justo apareció el teclado y hay un campo de la página esperando, lo subimos (una vez).
-  if(_campoPendiente && kb>0){ asegurarVisible(_campoPendiente); _campoPendiente=null; }
 }
 if(window.visualViewport){
-  window.visualViewport.addEventListener("resize", ajustarVV);
-  window.visualViewport.addEventListener("scroll", ajustarVV);
+  // El teclado subiendo dispara 'resize' varias veces seguidas. En cada uno actualizamos las
+  // medidas Y reprogramamos el centrado (debounce): el scroll definitivo ocurre UNA sola vez,
+  // recién cuando el teclado dejó de moverse. Si scrolleábamos antes o varias veces (como antes),
+  // el auto-scroll nativo de iOS —que pega el campo contra el teclado— peleaba con el nuestro y
+  // la vista rebotaba: subía, bajaba, y el campo terminaba tapado.
+  window.visualViewport.addEventListener("resize", ()=>{ ajustarVV(); if(_campoActivo) pedirCentrado(); });
+  window.visualViewport.addEventListener("scroll", ajustarVV);   // solo refresca medidas; NO re-centra
 }
 window.addEventListener("orientationchange", ()=>setTimeout(ajustarVV,200));
 ajustarVV();
+
+/* Un ÚNICO centrado, tras un respiro sin cambios de teclado (debounce). Cada resize del teclado
+   reinicia el reloj; cuando pasan ~250ms sin movimiento, damos por asentado el teclado (y el
+   auto-scroll de iOS ya terminó) y recién ahí scrolleamos, ganando la última palabra. */
+function pedirCentrado(){
+  clearTimeout(_centrarTimer);
+  _centrarTimer = setTimeout(()=>{ if(_campoActivo) asegurarVisible(_campoActivo); }, 250);
+}
 
 /* La barra inferior + FAB se esconden apenas se enfoca cualquier campo. No dependemos
    solo de medir el teclado, porque en pantallas scrolleadas el offsetTop despistaba la
    medición y la barra reaparecía flotando encima del teclado. */
 document.addEventListener("focusin", e=>{
-  if(e.target && e.target.matches && e.target.matches("input, textarea, select")){
-    _campoFocuseado = true; document.body.classList.add("kb-open");
-  }
+  const el=e.target;
+  if(!el || !el.matches || !el.matches("input, textarea, select")) return;
+  _campoActivo = el;
+  _campoFocuseado = true;
+  document.body.classList.add("kb-open");
+  pedirCentrado();     // se reprograma con cada resize del teclado y corre al asentarse
 });
 document.addEventListener("focusout", e=>{
   if(e.target && e.target.matches && e.target.matches("input, textarea, select")){
-    _campoFocuseado = false;
+    _campoActivo = null; _campoFocuseado = false;
+    clearTimeout(_centrarTimer);
     setTimeout(()=>{ if(!_campoFocuseado) ajustarVV(); }, 120);
   }
 });
@@ -1382,28 +1397,20 @@ function asegurarVisible(el){
   if(r.bottom <= topVis + visH - margen && r.top >= topVis + margen) return;
   const centroVisible = topVis + visH/2;
   if(modalCont){
-    // scroll INTERNO del modal, a posición absoluta que centra el campo
+    // scroll INTERNO del modal (el body está bloqueado, iOS no pelea acá): smooth queda lindo
     const rc = modalCont.getBoundingClientRect();
     const destino = modalCont.scrollTop + (r.top + r.height/2 - rc.top) - visH/2;
     modalCont.scrollTo({ top: Math.max(0, destino), behavior:"smooth" });
   } else {
-    // scroll de la PÁGINA a posición absoluta que centra el campo en el área visible
+    // scroll de la PÁGINA: INSTANTÁNEO a propósito. Como corre una sola vez y con el teclado ya
+    // asentado, un salto atómico deja el campo centrado sin darle a iOS una ventana para re-scrollear.
     const centroAbsoluto = window.scrollY + r.top + r.height/2;   // invariante al scroll
-    window.scrollTo({ top: Math.max(0, centroAbsoluto - centroVisible), behavior:"smooth" });
+    window.scrollTo({ top: Math.max(0, centroAbsoluto - centroVisible), behavior:"auto" });
   }
 }
-document.addEventListener("focusin", e=>{
-  const el=e.target;
-  if(!el || !el.matches || !el.matches("input,select,textarea")) return;
-  // Vale tanto para campos de la página (cuotas/fijos/ingresos) como para los del modal:
-  // asegurarVisible detecta el contenedor y centra por el scroll que corresponda.
-  _campoPendiente = el;                       // lo retoma ajustarVV cuando suba el teclado
-  asegurarVisible(el);                        // caso: cambio de campo con teclado ya abierto
-  clearTimeout(_focusTimer);
-  _focusTimer = setTimeout(()=>asegurarVisible(el), 350); // fallback por si no dispara el resize
-  setTimeout(()=>asegurarVisible(el), 600);   // reintento tras asentarse teclado + pista de scroll
-});
-document.addEventListener("focusout", ()=>{ _campoPendiente=null; });
+/* El foco de un campo lo maneja el focusin de más arriba (setea _campoActivo y dispara el
+   debounce de centrado). No agregamos más listeners de foco acá: un solo camino, sin scrolls
+   solapados. */
 
 /* ===== Pantalla de bloqueo: se muestra al abrir la app (si está activada) y de nuevo
    cada vez que la app vuelve de segundo plano. No reemplaza el contenido, lo tapa
