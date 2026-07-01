@@ -103,9 +103,13 @@
   .danger { background:#3f1d1d; color:#fca5a5; }
   #fab { position:fixed; right:18px; bottom:calc(80px + env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; background:var(--green); color:#fff; font-size:30px; line-height:54px; text-align:center; border:none; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; z-index:51; transition:transform .2s ease, opacity .2s ease; }
   #fab:active { background:#059669; }
-  .modal-bg { position:fixed; inset:0; background:rgba(2,6,23,.7); display:none; align-items:flex-end; justify-content:center; z-index:60; overflow:hidden; overscroll-behavior:contain; padding-bottom:var(--kb,0px); transition:padding-bottom .12s ease; }
+  /* El overlay se ancla al ÁREA REALMENTE VISIBLE (medida con visualViewport en JS): top al
+     borde de arriba visible y height al alto visible. Así el bottom-sheet (align-items:flex-end)
+     queda pegado justo por encima del teclado, sin el doble descuento que tenía antes
+     (padding-bottom:--kb sobre un inset:0 que ya no reflejaba lo que se ve en iOS). */
+  .modal-bg { position:fixed; left:0; right:0; top:var(--vv-top,0px); height:var(--vv-h,100dvh); background:rgba(2,6,23,.7); display:none; align-items:flex-end; justify-content:center; z-index:60; overflow:hidden; overscroll-behavior:contain; transition:top .12s ease, height .12s ease; }
   .modal-bg.open { display:flex; }
-  .modal { background:var(--card); border:1px solid var(--border); border-radius:16px 16px 0 0; padding:16px; width:100%; max-width:600px; max-height:calc(var(--appvh,100vh) - 16px); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+  .modal { background:var(--card); border:1px solid var(--border); border-radius:16px 16px 0 0; padding:16px; width:100%; max-width:600px; max-height:calc(100% - 16px); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
   /* Mientras hay un modal abierto, el fondo no scrollea (se mueve el cartel, no la pantalla de atrás) */
   html:has(.modal-bg.open), body:has(.modal-bg.open) { overflow:hidden; }
   @media(min-width:600px){ .modal-bg{ align-items:center; } .modal{ border-radius:16px; } }
@@ -263,7 +267,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.14";
+const APP_VERSION = "6.15";
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
@@ -1309,9 +1313,12 @@ document.addEventListener("gesturestart", e=>e.preventDefault(), {passive:false}
 
 /* ===== Teclado en iOS: el teclado se superpone (no empuja el layout), así que medimos
    el área realmente visible con visualViewport y la exponemos como variables CSS:
-   --appvh = alto visible (para el max-height del modal, que así scrollea interno)
-   --kb    = alto del teclado (para subir el bottom-sheet por encima de él).
-   Con esto el cartel queda arriba del teclado y el contenido no queda tapado. */
+   --appvh  = alto visible (referencia general)
+   --kb     = alto del teclado (para esconder la bottomnav/FAB y dar padding a la página)
+   --vv-top = borde superior del área visible / --vv-h = alto del área visible.
+   El overlay del modal se ancla a (--vv-top, --vv-h): así ocupa EXACTO lo que se ve y el
+   bottom-sheet queda pegado arriba del teclado, sin el doble descuento que antes lo hacía
+   escapar por arriba. El contenido que no entra scrollea dentro del propio modal. */
 let _campoPendiente=null, _focusTimer=null, _campoFocuseado=false;
 function ajustarVV(){
   const vv = window.visualViewport;
@@ -1320,6 +1327,9 @@ function ajustarVV(){
   const root = document.documentElement;
   root.style.setProperty("--appvh", h + "px");
   root.style.setProperty("--kb", kb + "px");
+  // Posición y alto del área realmente visible, para anclar el overlay del modal ahí.
+  root.style.setProperty("--vv-top", (vv ? vv.offsetTop : 0) + "px");
+  root.style.setProperty("--vv-h", h + "px");
   // Teclado abierto: escondemos la bottomnav y el FAB (usamos un umbral para no
   // confundir la barra de URL de Safari con el teclado real).
   document.body.classList.toggle("kb-open", _campoFocuseado || kb > 120);
@@ -1348,29 +1358,35 @@ document.addEventListener("focusout", e=>{
   }
 });
 
-/* ===== iOS: que el teclado no tape lo que escribís en las PANTALLAS (Ajustes, etc.) =====
-   En los modales ya está resuelto (bottom-sheet + --kb). Pero las filas de cuotas/fijos/
-   ingresos viven en la página normal, y el teclado de iOS se superpone (no empuja). Acá,
-   al enfocar un campo, lo scrolleamos para que quede por encima del teclado, midiendo el
-   área realmente visible con visualViewport (que ya descuenta teclado + barra de
-   "Autorrellenar"). Le sumamos un margen para que se vea también la lista del combo. */
+/* ===== iOS: que el teclado no tape (ni "escape" hacia arriba) lo que estás editando =====
+   Sirve para los dos casos: el campo activo del MODAL de gasto (que scrollea internamente)
+   y las filas de cuotas/fijos/ingresos que viven en la PÁGINA normal. El teclado de iOS se
+   superpone (no empuja el layout), así que medimos el área realmente visible con
+   visualViewport y, si el campo quedó tapado abajo o escapado arriba, lo dejamos CENTRADO
+   moviendo el scroll que corresponda (el del modal si vive ahí, el de la página si no). */
 function asegurarVisible(el){
-  if(!el || (el.closest && el.closest(".modal"))) return;           // los modales se manejan solos
+  if(!el) return;
+  const modalCont = el.closest ? el.closest(".modal") : null;   // si vive en un modal, ese modal es el que scrollea
   const vv = window.visualViewport;
   const topVis = vv ? vv.offsetTop : 0;
-  const botVis = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
+  const visH   = vv ? vv.height : window.innerHeight;
   const r = el.getBoundingClientRect();
-  const margen = 90; // deja el campo bien arriba del teclado + la barra de accesorios de iOS (^ ⌄ ✓)
-  if(r.bottom > botVis - margen){
-    window.scrollBy({ top: r.bottom - (botVis - margen), behavior:"smooth" });
-  } else if(r.top < topVis + margen){
-    window.scrollBy({ top: r.top - (topVis + margen), behavior:"smooth" });
+  const margen = 24;                          // respiro respecto al teclado y al borde de arriba
+  // Cuánto habría que scrollear para dejar el campo CENTRADO dentro del área visible.
+  const centrar = (r.top + r.height/2) - (topVis + visH/2);
+  const scroll = d => modalCont
+    ? modalCont.scrollBy({ top:d, behavior:"smooth" })
+    : window.scrollBy({ top:d, behavior:"smooth" });
+  // Solo lo movemos si está tapado por el teclado (abajo) o se escapó por arriba.
+  if(r.bottom > topVis + visH - margen || r.top < topVis + margen){
+    scroll(centrar);
   }
 }
 document.addEventListener("focusin", e=>{
   const el=e.target;
   if(!el || !el.matches || !el.matches("input,select,textarea")) return;
-  if(el.closest(".modal")) return;
+  // Vale tanto para campos de la página (cuotas/fijos/ingresos) como para los del modal:
+  // asegurarVisible detecta el contenedor y centra por el scroll que corresponda.
   _campoPendiente = el;                       // lo retoma ajustarVV cuando suba el teclado
   asegurarVisible(el);                        // caso: cambio de campo con teclado ya abierto
   clearTimeout(_focusTimer);
