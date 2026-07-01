@@ -85,7 +85,7 @@ const CANDIDATAS = [
     cond:(s,ctx)=> ctx.diaMes <= 3 },
   { id:"lunes", texto:"¿Cómo venís de plata después del finde? Hacé el balance del daño.",
     cond:(s,ctx)=> ctx.diaSemana === 1 },
-  { id:"viernes", texto:"Hola, soy el dinero que tenías el lunes. Te extraño.",
+  { id:"viernes", texto:"Cierre de semana: la plata del lunes se fue y solo dejó saludos.",
     cond:(s,ctx)=> ctx.diaSemana === 5 }
 ];
 
