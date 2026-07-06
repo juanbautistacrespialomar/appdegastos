@@ -147,8 +147,16 @@ function elegirMensaje(signals, hoy) {
 const MAX_POR_VENTANA = 2;
 const VENTANA_DIAS = 7;
 
+// Inicio de la ventana anti-spam. Normalizamos "hoy" a medianoche UTC para que
+// el borde coincida con las fechas del historial (que se guardan sin hora, o sea
+// a medianoche). Restamos VENTANA_DIAS-1: hoy + los 6 días previos = 7 justos.
+function inicioVentana(hoy) {
+  const hoyMedianoche = new Date(hoy.toISOString().slice(0, 10) + "T00:00:00Z");
+  return new Date(hoyMedianoche.getTime() - (VENTANA_DIAS - 1) * 86400000);
+}
+
 function dentroDelTope(historial, hoy) {
-  const limite = new Date(hoy.getTime() - VENTANA_DIAS * 86400000);
+  const limite = inicioVentana(hoy);
   const recientes = (historial || []).filter(f => new Date(f) >= limite);
   return recientes.length < MAX_POR_VENTANA;
 }
@@ -199,7 +207,7 @@ async function main() {
       await webpush.sendNotification(record.subscription, payload);
       console.log(`${key}: enviado → "${mensaje.texto}"`);
       // Registrar el envío y podar fechas viejas (más allá de la ventana) para que el KV no crezca.
-      const limite = new Date(hoy.getTime() - VENTANA_DIAS * 86400000);
+      const limite = inicioVentana(hoy);
       record.enviados = (record.enviados || []).filter(f => new Date(f) >= limite);
       record.enviados.push(hoy.toISOString().slice(0, 10));
       record.ultimoId = mensaje.id;
