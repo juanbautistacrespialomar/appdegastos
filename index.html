@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Mis Gastos</title>
 <meta name="theme-color" content="#080C10">
+<script>try{if(localStorage.getItem("mg_theme")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}</script>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://mis-gastos-recordatorios.juanbautistacrespialomar.workers.dev; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; object-src 'none';">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -17,6 +18,12 @@
   :root {
     --bg:#080C10; --card:#0F151C; --card2:#18212B; --border:#22303C;
     --txt:#E3EDF3; --muted:#6B8194; --green:#00E676; --amber:#FFA31A; --sky:#33C4E8; --red:#FF5C5C; --violet:#9D7BFF;
+    --nav:#0C141C; --hover:#2A3A47;
+  }
+  :root[data-theme="light"] {
+    --bg:#FFFFFF; --card:#F2F5F9; --card2:#E9EDF3; --border:#D8DEE6;
+    --txt:#0F1720; --muted:#64748B; --green:#059669; --amber:#D97706; --sky:#0EA5C9; --red:#DC2626; --violet:#7C5CE0;
+    --nav:#FFFFFF; --hover:#E3E8EE;
   }
   html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
   /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
@@ -32,7 +39,7 @@
   .header { gap:8px; margin-bottom:16px; }
   .btn { border:none; border-radius:10px; font:inherit; cursor:pointer; color:var(--txt); }
   .btn-ghost { background:var(--card2); padding:9px 12px; font-size:14px; display:inline-flex; align-items:center; gap:6px; }
-  .btn-ghost:active { background:#2A3A47; }
+  .btn-ghost:active { background:var(--hover); }
   .monthbar { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:8px 10px; margin-bottom:14px; }
   .monthbar .nav { background:none; border:none; color:var(--txt); font-size:22px; padding:4px 14px; cursor:pointer; line-height:1; }
   .monthbar .label { font-weight:600; }
@@ -44,7 +51,7 @@
   .s { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
   .s .l { font-size:10px; color:var(--muted); display:flex; align-items:center; gap:4px; }
   .s .v { font-size:13px; font-weight:600; margin-top:2px; }
-  .bottomnav { position:fixed; left:0; right:0; bottom:0; z-index:50; background:#0C141C; border-top:2px solid var(--sky); padding-bottom:env(safe-area-inset-bottom); transition:transform .2s ease; }
+  .bottomnav { position:fixed; left:0; right:0; bottom:0; z-index:50; background:var(--nav); border-top:2px solid var(--sky); padding-bottom:env(safe-area-inset-bottom); transition:transform .2s ease; }
   /* Teclado abierto en iOS: en vez de dejar que Safari "levante" la barra fija y la deje
      flotando encima del teclado, la mandamos abajo (fuera de pantalla). El FAB también. */
   body.kb-open .bottomnav { transform:translateY(120%); }
@@ -60,7 +67,7 @@
   @keyframes viewin { from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none} }
   @media (prefers-reduced-motion: reduce){ .tabind{transition:none} .tab svg{animation:none !important} #content{animation:none !important} }
   .panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px; }
-  .panel .ptitle { font-size:14px; font-weight:600; color:#C4D2DC; margin:0 0 10px; }
+  .panel .ptitle { font-size:14px; font-weight:600; color:var(--txt); margin:0 0 10px; }
   .legend-row { display:flex; align-items:center; justify-content:space-between; font-size:14px; padding:4px 0; }
   .dot { width:12px; height:12px; border-radius:3px; display:inline-block; margin-right:8px; vertical-align:-1px; }
   .item { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:11px 12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
@@ -78,17 +85,17 @@
   .pin { color:var(--amber); } .pct { color:var(--muted); }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .grid .full { grid-column:1/-1; }
-  input,select { width:100%; min-width:0; background:var(--card2); border:1px solid #2A3A47; border-radius:10px; padding:10px 11px; color:var(--txt); font:inherit; }
+  input,select { width:100%; min-width:0; background:var(--card2); border:1px solid var(--border); border-radius:10px; padding:10px 11px; color:var(--txt); font:inherit; }
   /* Combobox de descripción: input editable + lista que se despliega y filtra al tipear */
   .combo { position:relative; }
   .combo-list { display:none; position:absolute; left:0; right:0; top:calc(100% + 4px);
-    background:var(--card2); border:1px solid #2A3A47; border-radius:10px;
+    background:var(--card2); border:1px solid var(--border); border-radius:10px;
     max-height:190px; overflow-y:auto; overscroll-behavior:contain; z-index:60; box-shadow:0 12px 28px rgba(0,0,0,.55); }
   .combo-list.up { top:auto; bottom:calc(100% + 4px); }
   .combo-opt { padding:11px 12px; font-size:14px; cursor:pointer; color:var(--txt);
     border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .combo-opt:last-child { border-bottom:none; }
-  .combo-opt:hover, .combo-opt:active { background:#2A3A47; }
+  .combo-opt:hover, .combo-opt:active { background:var(--hover); }
   .combo-empty { padding:11px 12px; font-size:13px; color:var(--muted); }
   input:focus,select:focus { outline:none; border-color:var(--green); }
   /* Respiro para scrollIntoView: al centrar/acercar un campo, que quede separado del teclado
@@ -130,7 +137,7 @@
   .pindot.filled{ background:var(--amber); border-color:var(--amber); }
   .pinpad{ display:grid; grid-template-columns:repeat(3,68px); gap:14px; justify-content:center; }
   .pinkey{ width:68px; height:68px; border-radius:50%; background:var(--card2); color:var(--txt); font-size:24px; border:none; font:inherit; }
-  .pinkey:active{ background:#2A3A47; }
+  .pinkey:active{ background:var(--hover); }
   .pinkey.ghost{ background:none; color:var(--muted); font-size:14px; }
   .lock-err{ color:var(--red); font-size:13px; min-height:18px; }
   .lock-sub{ color:var(--muted); font-size:13px; margin-top:-8px; }
@@ -152,6 +159,7 @@
     <div class="row" style="gap:8px">
       <button class="btn btn-ghost" id="installBtn" style="display:none" title="Instalar app">⬇ Instalar</button>
       <button class="btn btn-ghost" id="eyeBtn" title="Ocultar/mostrar importes">👁</button>
+      <button class="btn btn-ghost" id="themeBtn" title="Cambiar tema claro/oscuro">🌙</button>
     </div>
   </div>
 
@@ -224,7 +232,7 @@
 <div id="modalUpd" class="modal-bg">
   <div class="modal">
     <div class="row between" style="margin-bottom:10px"><strong>🎉 Nueva versión disponible</strong></div>
-    <p id="upd-msg" style="color:#C4D2DC;font-size:14px;line-height:1.5;margin:0 0 16px"></p>
+    <p id="upd-msg" style="color:var(--txt);font-size:14px;line-height:1.5;margin:0 0 16px"></p>
     <div class="grid">
       <button class="btn btn-ghost" id="upd-later">Más tarde</button>
       <button class="btn btn-add" id="upd-now">⟳ Actualizar ahora</button>
@@ -237,7 +245,7 @@
 <div id="modalConfirm" class="modal-bg">
   <div class="modal">
     <div class="row between" style="margin-bottom:10px"><strong id="cf-title">Confirmar</strong><button id="cf-x" class="del" style="font-size:20px">✕</button></div>
-    <p id="cf-msg" style="color:#C4D2DC;font-size:14px;line-height:1.5;margin:0 0 16px"></p>
+    <p id="cf-msg" style="color:var(--txt);font-size:14px;line-height:1.5;margin:0 0 16px"></p>
     <div class="grid">
       <button class="btn btn-ghost" id="cf-cancel">Cancelar</button>
       <button class="btn btn-add" id="cf-ok">Confirmar</button>
@@ -261,7 +269,7 @@
   <div class="modal" style="text-align:center">
     <div style="font-size:34px;margin-bottom:6px">🔔</div>
     <strong style="font-size:16px;display:block;margin-bottom:8px">No te olvides de anotar</strong>
-    <p style="color:#C4D2DC;font-size:14px;line-height:1.5;margin:0 0 6px">
+    <p style="color:var(--txt);font-size:14px;line-height:1.5;margin:0 0 6px">
       Activá las notis y te aviso si te colgás o si la tarjeta empezó a transpirar. Un par por semana, nada más.
     </p>
     <p style="color:#6B8194;font-size:12px;margin:0 0 16px">Cero spam. Palabra de contador.</p>
@@ -751,8 +759,8 @@ function donut(data,total){
   data.forEach(d=>{ const len=(d.value/total)*C;
     segs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${COLORES[d.name]||'#6B8194'}" stroke-width="26" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-acc}"></circle>`; acc+=len; });
   return `<svg viewBox="0 0 200 200" width="100%" height="200" style="max-height:200px"><g transform="rotate(-90 ${cx} ${cy})">${segs}</g>
-    <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="#8B9CAB" font-size="11">Gasto</text>
-    <text x="${cx}" y="${cy+15}" text-anchor="middle" fill="#E3EDF3" font-size="15" font-weight="700">${fmt(total)}</text></svg>`;
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" style="fill:var(--muted)" font-size="11">Gasto</text>
+    <text x="${cx}" y="${cy+15}" text-anchor="middle" style="fill:var(--txt)" font-size="15" font-weight="700">${fmt(total)}</text></svg>`;
 }
 function proyeccion(){
   const arr=[]; for(let i=0;i<6;i++){ const ym=ymAdd(mesActivo,i); const c=computeMes(ym);
@@ -1242,7 +1250,7 @@ function abrirModalDet(id){
   $("d-body").innerHTML=
     `<div style="text-align:center;margin:4px 0 16px">
        <div style="font-size:32px;font-weight:700">${fmt(v.monto)}</div>
-       ${v.descripcion?`<div style="color:#C4D2DC;margin-top:6px;font-size:15px">${esc(v.descripcion)}</div>`:'<div style="color:var(--muted);margin-top:6px;font-size:13px">Sin descripción</div>'}
+       ${v.descripcion?`<div style="color:var(--txt);margin-top:6px;font-size:15px">${esc(v.descripcion)}</div>`:'<div style="color:var(--muted);margin-top:6px;font-size:13px">Sin descripción</div>'}
      </div>
      <div class="crow" style="grid-template-columns:1fr 1fr;cursor:default">
        <div><label>Categoría</label><div style="font-size:14px;margin-top:2px"><span class="dot" style="background:${col}"></span>${esc(v.categoria)}</div></div>
@@ -1274,6 +1282,19 @@ function exportar(){
 $("prevMonth").onclick=()=>{ mesActivo=ymAdd(mesActivo,-1); render(); };
 $("nextMonth").onclick=()=>{ mesActivo=ymAdd(mesActivo,1); render(); };
 $("eyeBtn").onclick=()=>{ oculto=!oculto; render(); };
+/* Tema claro/oscuro: SOLO cambia colores (variables CSS). No toca datos: la preferencia
+   se guarda en su propia clave "mg_theme", aparte de tus gastos. No llama a render(). */
+const THEME_KEY="mg_theme";
+function aplicarTema(t){
+  if(t==="light") document.documentElement.setAttribute("data-theme","light");
+  else document.documentElement.removeAttribute("data-theme");
+  const b=$("themeBtn"); if(b) b.textContent = t==="light" ? "☀️" : "🌙";
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute("content", t==="light" ? "#FFFFFF" : "#080C10");
+}
+let temaActual = (function(){ try{ return localStorage.getItem(THEME_KEY)||"dark"; }catch(e){ return "dark"; } })();
+aplicarTema(temaActual);
+$("themeBtn").onclick=()=>{ temaActual = temaActual==="light"?"dark":"light"; try{ localStorage.setItem(THEME_KEY,temaActual); }catch(e){} aplicarTema(temaActual); };
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ if(vista===t.dataset.v){ const w=document.querySelector(".wrap"); (w||window).scrollTo({top:0,behavior:"smooth"}); return; } vista=t.dataset.v; render(); });
 
 $("q-cat").innerHTML = CATS.map(c=>`<option>${c}</option>`).join("");
