@@ -275,7 +275,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.21";
+const APP_VERSION = "6.23";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
@@ -307,11 +307,11 @@ function normConfig(c){
     else c.ingresos.push({n:"Sueldo", hist:[{d:ymNow(), m:0}]});
   }
   delete c.sueldo;
-  c.ingresos.forEach(g=>{ if(!Array.isArray(g.hist)) g.hist=[{d:ymNow(), m:(g.m||0)}]; if(!g.n) g.n="Ingreso"; g.hist.sort((a,b)=>a.d.localeCompare(b.d)); if(g.hist[0] && g.hist[0].n==null) g.hist[0].n=g.n; });
+  c.ingresos.forEach(g=>{ if(!Array.isArray(g.hist)) g.hist=[{d:ymNow(), m:(g.m||0)}]; if(!g.n) g.n="Ingreso"; g.hist.sort((a,b)=>a.d.localeCompare(b.d)); g.hist.forEach(h=>{ if(h.n==null) h.n=g.n; }); });
   if(!Array.isArray(c.fijos)) c.fijos=[];
   if(!Array.isArray(c.cuotas)) c.cuotas=[];
   c.cuotas.forEach(q=>{ if(!q.d) q.d=ymNow(); if((q.tot==null||q.tot===0) && q.m>0 && q.t>0) q.tot=q.m*q.t; });
-  c.fijos.forEach(f=>{ if(!f.hist){ f.hist=[{d:(c.desde||ymNow()),m:(f.m||0)}]; delete f.m; } if(!f.cat) f.cat="Otros"; f.cat=migrarCat(f.cat); if(!f.n) f.n="Gasto fijo"; f.hist.sort((a,b)=>a.d.localeCompare(b.d)); if(f.hist[0]){ if(f.hist[0].n==null) f.hist[0].n=f.n; if(f.hist[0].cat==null) f.hist[0].cat=f.cat; } });
+  c.fijos.forEach(f=>{ if(!f.hist){ f.hist=[{d:(c.desde||ymNow()),m:(f.m||0)}]; delete f.m; } if(!f.cat) f.cat="Otros"; f.cat=migrarCat(f.cat); if(!f.n) f.n="Gasto fijo"; f.hist.sort((a,b)=>a.d.localeCompare(b.d)); f.hist.forEach(h=>{ if(h.n==null) h.n=f.n; if(h.cat==null) h.cat=f.cat; }); });
   return c;
 }
 function normMov(m){ if(!Array.isArray(m)) return []; m.forEach(x=>{ if(!x.medio) x.medio="—"; if(!x.categoria) x.categoria="Otros"; x.categoria=migrarCat(x.categoria); if(typeof x.monto!=="number") x.monto=parseMonto(x.monto)||0; }); return m; }
@@ -552,7 +552,7 @@ function histLabel(d){ return MC[(+d.split("-")[1])-1]+" '"+d.slice(2,4); }
 // Un renglón del Historial: "ago '25: $9500 (dgo · Entretenimiento)". Muestra el nombre y/o
 // la categoría entre paréntesis SOLO si esa entrada del hist los define (es decir, donde cambiaron;
 // la entrada base siempre los trae, así ves el valor original).
-function histLinea(h){ let s=histLabel(h.d)+": $"+fmtN(h.m); const ext=[]; if(h.n!=null) ext.push(esc(h.n)); if(h.cat!=null) ext.push(esc(h.cat)); return s+(ext.length?" ("+ext.join(" · ")+")":""); }
+function histLinea(h, prev){ let s=histLabel(h.d)+": $"+fmtN(h.m); const ext=[]; if(h.n!=null && (!prev || h.n!==prev.n)) ext.push(esc(h.n)); if(h.cat!=null && (!prev || h.cat!==prev.cat)) ext.push(esc(h.cat)); return s+(ext.length?" ("+ext.join(" · ")+")":""); }
 
 function toast(msg, onClick){
   let t=$("toast");
@@ -692,6 +692,9 @@ function montoVigente(hist, ym){ let best=null; (hist||[]).forEach(h=>{ if(h.d<=
 function campoVigente(hist, ym, campo, def){ let best=null; (hist||[]).forEach(h=>{ if(h.d<=ym && h[campo]!=null && (!best||h.d>best.d)) best=h; }); return best?best[campo]:def; }
 function nombreVigente(f, ym){ return campoVigente(f.hist, ym, "n", f.n); }
 function catVigente(f, ym){ return campoVigente(f.hist, ym, "cat", f.cat); }
+// ¿Está dado de baja a este mes? (importe 0 vigente y ADEMÁS tuvo importe alguna vez).
+// Los recién creados que nunca tuvieron importe NO se ocultan, para poder cargarlos.
+function ocultoEnAjustes(obj, ym){ return montoVigente(obj.hist,ym)<=0 && (obj.hist||[]).some(h=>h.m>0); }
 // Monto de un ingreso en un mes. Si es "solo este mes" (once), cuenta únicamente en los
 // meses EXACTOS donde lo cargaste (ej: aguinaldo en jun y dic), no de ahí en adelante.
 // Si no, se comporta como siempre: el último monto vigente hasta ese mes.
@@ -728,8 +731,7 @@ function guardarIngreso(i, onceFlag){
   g.once = (typeof onceFlag==="boolean") ? onceFlag : (onceEl ? onceEl.checked : !!g.once);
   const desde = (mesEl&&anioEl) ? (anioEl.value+"-"+String(+mesEl.value).padStart(2,"0")) : mesActivo;
   const nuevoN = nEl ? (nEl.value.trim()||"Ingreso") : null;
-  const nParam = (nuevoN!=null && nuevoN!==nombreVigente(g,desde)) ? nuevoN : null; // solo versiona si cambió
-  setVig(g, desde, parseMonto(mEl?mEl.value:0)||0, nParam); // persistC + render
+  setVig(g, desde, parseMonto(mEl?mEl.value:0)||0, nuevoN); // snapshotea nombre del mes; persistC + render
 }
 
 function computeMes(ym){
@@ -938,13 +940,14 @@ function renderAjustes(){
     // cargaste (los que tienen entrada en su hist). En cualquier otro mes no aparece,
     // así no queda flotando en cero. Mantenemos el índice real (i) para guardar/borrar.
     if(once && !(g.hist||[]).some(h=>h.d===mesActivo)) return "";
+    if(!once && ocultoEnAjustes(g,mesActivo)) return ""; // dado de baja: no aparece de ese mes en adelante
     const m = once ? montoIngresoMes(g,mesActivo) : montoVigente(g.hist,mesActivo);
     let histTxt="";
     if(once){
       const meses=(g.hist||[]).filter(h=>h.m>0).map(h=>histLabel(h.d));
       if(meses.length) histTxt=`<div class="hist">Se cobra solo en: ${meses.join(" · ")}</div>`;
     } else {
-      histTxt=(g.hist&&g.hist.length>1)?`<div class="hist">Historial: ${g.hist.map(histLinea).join(" · ")}</div>`:"";
+      histTxt=(g.hist&&g.hist.length>1)?`<div class="hist">Historial: ${g.hist.map((h,idx,arr)=>histLinea(h,arr[idx-1])).join(" · ")}</div>`:"";
     }
     const lblMonto = once ? `$ solo en ${histLabel(mesActivo)}` : `$ por mes (en ${histLabel(mesActivo)})`;
     const lblMes   = once ? "Mes del ingreso" : "Aplicar desde";
@@ -960,10 +963,12 @@ function renderAjustes(){
   }).join("");
   // Cantidad de ingresos que efectivamente se muestran en este mes (recurrentes + los
   // puntuales cargados en el mes activo), para que el contador del título no mienta.
-  const ingVisibles = config.ingresos.filter(g => !g.once || (g.hist||[]).some(h=>h.d===mesActivo)).length;
+  const ingVisibles = config.ingresos.filter(g => g.once ? (g.hist||[]).some(h=>h.d===mesActivo) : !ocultoEnAjustes(g,mesActivo)).length;
+  const fijosVisibles = config.fijos.filter(f => !ocultoEnAjustes(f,mesActivo)).length;
   const fijosRows = config.fijos.map((f,i)=>{
+    if(ocultoEnAjustes(f,mesActivo)) return ""; // dado de baja: no aparece de ese mes en adelante
     const montoActual = montoVigente(f.hist, mesActivo);
-    const histTxt = (f.hist&&f.hist.length>1)? `<div class="hist">Historial: ${f.hist.map(histLinea).join(" · ")}</div>` : "";
+    const histTxt = (f.hist&&f.hist.length>1)? `<div class="hist">Historial: ${f.hist.map((h,idx,arr)=>histLinea(h,arr[idx-1])).join(" · ")}</div>` : "";
     return `<div class="crow">
       <div class="full"><label>Gasto fijo</label><input class="mini" data-t="fijo" data-i="${i}" data-k="n" value="${esc(nombreVigente(f,mesActivo))}" placeholder="Ej: Alquiler, Luz, Netflix…"></div>
       <div><label>Categoría</label><select class="mini" data-t="fijo" data-i="${i}" data-k="cat">${catOpts(catVigente(f,mesActivo))}</select></div>
@@ -995,7 +1000,7 @@ function renderAjustes(){
        ${ajFold.ing?'':ingRows}</div>
      <div class="panel">
        <div class="row between fold-aj" data-fold="fijos" style="cursor:pointer">
-         <p class="ptitle" style="margin:0">📌 Gastos fijos <span style="color:var(--muted);font-weight:400">· ${config.fijos.length}</span></p>
+         <p class="ptitle" style="margin:0">📌 Gastos fijos <span style="color:var(--muted);font-weight:400">· ${fijosVisibles}</span></p>
          <span style="color:var(--muted);font-size:14px">${ajFold.fijos?'▸':'▾'}</span></div>
        <button class="btn btn-ghost" id="add-fijo" style="margin:10px 0 ${ajFold.fijos?'0':'12px'}">＋ Agregar fijo</button>
        ${ajFold.fijos?'':(fijosRows||'<div class="empty" style="padding:8px">Todavía no cargaste fijos.</div>')}</div>
@@ -1102,14 +1107,30 @@ function renderAjustes(){
     const f=config.fijos[i], desde=(dEl&&dEl.value)||mesActivo;
     const nuevoN = nEl ? (nEl.value.trim()||"Gasto fijo") : null;
     const nuevaCat = cEl ? cEl.value : null;
-    const nParam = (nuevoN!=null && nuevoN!==nombreVigente(f,desde)) ? nuevoN : null;   // solo versiona si cambió
-    const cParam = (nuevaCat!=null && nuevaCat!==catVigente(f,desde)) ? nuevaCat : null; // idem categoría
-    setVig(f, desde, parseMonto(mEl.value)||0, nParam, cParam); // persistC + render
+    setVig(f, desde, parseMonto(mEl.value)||0, nuevoN, nuevaCat); // snapshotea nombre+cat del mes; persistC + render
     toast("Gasto fijo guardado ✓");
   });
   $("content").querySelectorAll(".fold-aj").forEach(el=>el.onclick=()=>{ const k=el.dataset.fold; ajFold[k]=!ajFold[k]; render(); });
-  $("content").querySelectorAll("[data-t='deling']").forEach(b=>b.onclick=()=>{ const i=+b.dataset.i; const nm=(config.ingresos[i]&&config.ingresos[i].n)||"este ingreso"; if(confirm('¿Borrar el ingreso "'+nm+'"?')){ config.ingresos.splice(i,1); persistC(); render(); } });
-  $("content").querySelectorAll("[data-t='delfijo']").forEach(b=>b.onclick=()=>{ const i=+b.dataset.i; const nm=(config.fijos[i]&&config.fijos[i].n)||"este fijo"; if(confirm('¿Borrar el gasto fijo "'+nm+'"?')){ config.fijos.splice(i,1); persistC(); render(); } });
+  $("content").querySelectorAll("[data-t='deling']").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i, g=config.ingresos[i]; if(!g) return;
+    const nm=nombreVigente(g,mesActivo)||"este ingreso";
+    if(g.once){ // "solo este mes": borrar = quitar solo la entrada de este mes
+      if(confirm('¿Borrar el ingreso "'+nm+'" de '+histLabel(mesActivo)+'?')){ g.hist=(g.hist||[]).filter(h=>h.d!==mesActivo); if(!g.hist.length) config.ingresos.splice(i,1); persistC(); render(); }
+      return;
+    }
+    const tienePasado = montoVigente(g.hist, ymAdd(mesActivo,-1)) > 0; // ¿existía el mes anterior?
+    if(tienePasado){
+      if(confirm('¿Dar de baja "'+nm+'" desde '+histLabel(mesActivo)+'?\nLos meses anteriores se conservan.')){ g.hist=g.hist.filter(h=>h.d < mesActivo); setVig(g, mesActivo, 0, nombreVigente(g,mesActivo)); toast("Dado de baja desde "+histLabel(mesActivo)+" ✓"); }
+    } else if(confirm('¿Borrar "'+nm+'" por completo?\n(No tiene importe en meses anteriores.)')){ config.ingresos.splice(i,1); persistC(); render(); }
+  });
+  $("content").querySelectorAll("[data-t='delfijo']").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i, f=config.fijos[i]; if(!f) return;
+    const nm=nombreVigente(f,mesActivo)||"este fijo";
+    const tienePasado = montoVigente(f.hist, ymAdd(mesActivo,-1)) > 0; // ¿existía el mes anterior?
+    if(tienePasado){
+      if(confirm('¿Dar de baja "'+nm+'" desde '+histLabel(mesActivo)+'?\nLos meses anteriores se conservan.')){ f.hist=f.hist.filter(h=>h.d < mesActivo); setVig(f, mesActivo, 0, nombreVigente(f,mesActivo), catVigente(f,mesActivo)); toast("Dado de baja desde "+histLabel(mesActivo)+" ✓"); }
+    } else if(confirm('¿Borrar "'+nm+'" por completo?\n(No tiene importe en meses anteriores.)')){ config.fijos.splice(i,1); persistC(); render(); }
+  });
   $("content").querySelectorAll("[data-t='delcuota']").forEach(b=>b.onclick=()=>{ const i=+b.dataset.i; const nm=(config.cuotas[i]&&config.cuotas[i].n)||"esta cuota"; if(confirm('¿Borrar la cuota "'+nm+'"?')){ config.cuotas.splice(i,1); persistC(); render(); } });
   $("add-ing").onclick=()=>{ ajFold.ing=false; config.ingresos.push({n:"",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
   $("add-fijo").onclick=()=>{ ajFold.fijos=false; config.fijos.push({n:"",cat:"Servicios",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
