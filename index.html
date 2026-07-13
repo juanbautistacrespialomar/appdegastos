@@ -275,7 +275,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.19";
+const APP_VERSION = "6.21";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
@@ -307,11 +307,11 @@ function normConfig(c){
     else c.ingresos.push({n:"Sueldo", hist:[{d:ymNow(), m:0}]});
   }
   delete c.sueldo;
-  c.ingresos.forEach(g=>{ if(!Array.isArray(g.hist)) g.hist=[{d:ymNow(), m:(g.m||0)}]; if(!g.n) g.n="Ingreso"; });
+  c.ingresos.forEach(g=>{ if(!Array.isArray(g.hist)) g.hist=[{d:ymNow(), m:(g.m||0)}]; if(!g.n) g.n="Ingreso"; g.hist.sort((a,b)=>a.d.localeCompare(b.d)); if(g.hist[0] && g.hist[0].n==null) g.hist[0].n=g.n; });
   if(!Array.isArray(c.fijos)) c.fijos=[];
   if(!Array.isArray(c.cuotas)) c.cuotas=[];
   c.cuotas.forEach(q=>{ if(!q.d) q.d=ymNow(); if((q.tot==null||q.tot===0) && q.m>0 && q.t>0) q.tot=q.m*q.t; });
-  c.fijos.forEach(f=>{ if(!f.hist){ f.hist=[{d:(c.desde||ymNow()),m:(f.m||0)}]; delete f.m; } if(!f.cat) f.cat="Otros"; f.cat=migrarCat(f.cat); });
+  c.fijos.forEach(f=>{ if(!f.hist){ f.hist=[{d:(c.desde||ymNow()),m:(f.m||0)}]; delete f.m; } if(!f.cat) f.cat="Otros"; f.cat=migrarCat(f.cat); if(!f.n) f.n="Gasto fijo"; f.hist.sort((a,b)=>a.d.localeCompare(b.d)); if(f.hist[0]){ if(f.hist[0].n==null) f.hist[0].n=f.n; if(f.hist[0].cat==null) f.hist[0].cat=f.cat; } });
   return c;
 }
 function normMov(m){ if(!Array.isArray(m)) return []; m.forEach(x=>{ if(!x.medio) x.medio="—"; if(!x.categoria) x.categoria="Otros"; x.categoria=migrarCat(x.categoria); if(typeof x.monto!=="number") x.monto=parseMonto(x.monto)||0; }); return m; }
@@ -549,6 +549,10 @@ function ymDiff(a,b){ const [ay,am]=a.split("-").map(Number),[by,bm]=b.split("-"
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function persistC(){ save(CKEY,config); } function persistM(){ save(MKEY,mov); }
 function histLabel(d){ return MC[(+d.split("-")[1])-1]+" '"+d.slice(2,4); }
+// Un renglón del Historial: "ago '25: $9500 (dgo · Entretenimiento)". Muestra el nombre y/o
+// la categoría entre paréntesis SOLO si esa entrada del hist los define (es decir, donde cambiaron;
+// la entrada base siempre los trae, así ves el valor original).
+function histLinea(h){ let s=histLabel(h.d)+": $"+fmtN(h.m); const ext=[]; if(h.n!=null) ext.push(esc(h.n)); if(h.cat!=null) ext.push(esc(h.cat)); return s+(ext.length?" ("+ext.join(" · ")+")":""); }
 
 function toast(msg, onClick){
   let t=$("toast");
@@ -682,6 +686,12 @@ function poblarFiltroMedios(){
 }
 
 function montoVigente(hist, ym){ let best=null; (hist||[]).forEach(h=>{ if(h.d<=ym && (!best||h.d>best.d)) best=h; }); return best?best.m:0; }
+// Igual que montoVigente pero para un campo cualquiera (n, cat). Recorre el hist de forma
+// "sparse": solo mira las entradas que TIENEN el campo definido y se queda con la última
+// hasta ese mes. Así el nombre/categoría se arrastra hacia adelante idéntico al importe.
+function campoVigente(hist, ym, campo, def){ let best=null; (hist||[]).forEach(h=>{ if(h.d<=ym && h[campo]!=null && (!best||h.d>best.d)) best=h; }); return best?best[campo]:def; }
+function nombreVigente(f, ym){ return campoVigente(f.hist, ym, "n", f.n); }
+function catVigente(f, ym){ return campoVigente(f.hist, ym, "cat", f.cat); }
 // Monto de un ingreso en un mes. Si es "solo este mes" (once), cuenta únicamente en los
 // meses EXACTOS donde lo cargaste (ej: aguinaldo en jun y dic), no de ahí en adelante.
 // Si no, se comporta como siempre: el último monto vigente hasta ese mes.
@@ -689,7 +699,22 @@ function montoIngresoMes(g, ym){
   if(g.once){ const h=(g.hist||[]).find(x=>x.d===ym); return h?h.m:0; }
   return montoVigente(g.hist, ym);
 }
-function setVig(obj, desde, monto){ if(!obj.hist) obj.hist=[]; const ex=obj.hist.find(h=>h.d===desde); if(ex) ex.m=monto; else obj.hist.push({d:desde,m:monto}); obj.hist.sort((a,b)=>a.d.localeCompare(b.d)); persistC(); render(); }
+function setVig(obj, desde, monto, nombre, cat){
+  if(!obj.hist) obj.hist=[];
+  const ex=obj.hist.find(h=>h.d===desde);
+  if(ex){ ex.m=monto; if(nombre!=null) ex.n=nombre; if(cat!=null) ex.cat=cat; }
+  else { const e={d:desde,m:monto}; if(nombre!=null) e.n=nombre; if(cat!=null) e.cat=cat; obj.hist.push(e); }
+  obj.hist.sort((a,b)=>a.d.localeCompare(b.d));
+  // Garantizo que la entrada base (más vieja) siempre tenga nombre/cat, así ningún mes
+  // se queda sin de dónde leer (ej: si agregaste un monto retroactivo sin tocar el nombre).
+  if(obj.hist[0].n==null) obj.hist[0].n=obj.n;
+  if(("cat" in obj) && obj.hist[0].cat==null) obj.hist[0].cat=obj.cat;
+  // El nivel superior refleja el nombre/cat ACTUAL (el más nuevo definido) para defaults y borrados.
+  const ult=obj.hist[obj.hist.length-1].d;
+  obj.n=nombreVigente(obj,ult);
+  if("cat" in obj) obj.cat=catVigente(obj,ult);
+  persistC(); render();
+}
 // Lee la fila de un ingreso (nombre, monto, mes elegido y el tilde "solo este mes") y lo guarda.
 // La usan tanto el botón 💾 Guardar como el checkbox. onceFlag: si viene booleano, lo fuerza
 // (lo manda el checkbox); si no, se respeta lo que esté tildado en la fila.
@@ -700,16 +725,17 @@ function guardarIngreso(i, onceFlag){
   const mesEl = root.querySelector("[data-imes='"+i+"']");
   const anioEl= root.querySelector("[data-ianio='"+i+"']");
   const onceEl= root.querySelector("[data-ionce='"+i+"']");
-  if(nEl) g.n = nEl.value.trim() || "Ingreso";
   g.once = (typeof onceFlag==="boolean") ? onceFlag : (onceEl ? onceEl.checked : !!g.once);
   const desde = (mesEl&&anioEl) ? (anioEl.value+"-"+String(+mesEl.value).padStart(2,"0")) : mesActivo;
-  setVig(g, desde, parseMonto(mEl?mEl.value:0)||0); // persistC + render
+  const nuevoN = nEl ? (nEl.value.trim()||"Ingreso") : null;
+  const nParam = (nuevoN!=null && nuevoN!==nombreVigente(g,desde)) ? nuevoN : null; // solo versiona si cambió
+  setVig(g, desde, parseMonto(mEl?mEl.value:0)||0, nParam); // persistC + render
 }
 
 function computeMes(ym){
-  const ingresos=[]; config.ingresos.forEach(g=>{ const m=montoIngresoMes(g,ym); if(m>0) ingresos.push({nombre:g.n, monto:m, once:!!g.once}); });
+  const ingresos=[]; config.ingresos.forEach(g=>{ const m=montoIngresoMes(g,ym); if(m>0) ingresos.push({nombre:nombreVigente(g,ym), monto:m, once:!!g.once}); });
   const ingreso = ingresos.reduce((s,x)=>s+x.monto,0);
-  const fijos=[]; config.fijos.forEach(f=>{ const m=montoVigente(f.hist,ym); if(m>0) fijos.push({nombre:f.n, monto:m, cat:f.cat}); });
+  const fijos=[]; config.fijos.forEach(f=>{ const m=montoVigente(f.hist,ym); if(m>0) fijos.push({nombre:nombreVigente(f,ym), monto:m, cat:catVigente(f,ym)}); });
   const cuotas=[];
   config.cuotas.forEach(q=>{ const k=ymDiff(q.d,ym); if(k>=0 && k<=(q.t-q.c)) cuotas.push({nombre:q.n+" "+(q.c+k)+"/"+q.t, fuente:q.f, monto:q.m}); });
   const variables = mov.filter(x=>x.fecha.slice(0,7)===ym).sort((a,b)=>b.fecha.localeCompare(a.fecha));
@@ -918,12 +944,12 @@ function renderAjustes(){
       const meses=(g.hist||[]).filter(h=>h.m>0).map(h=>histLabel(h.d));
       if(meses.length) histTxt=`<div class="hist">Se cobra solo en: ${meses.join(" · ")}</div>`;
     } else {
-      histTxt=(g.hist&&g.hist.length>1)?`<div class="hist">Historial: ${g.hist.map(h=>histLabel(h.d)+": $"+fmtN(h.m)).join(" · ")}</div>`:"";
+      histTxt=(g.hist&&g.hist.length>1)?`<div class="hist">Historial: ${g.hist.map(histLinea).join(" · ")}</div>`:"";
     }
     const lblMonto = once ? `$ solo en ${histLabel(mesActivo)}` : `$ por mes (en ${histLabel(mesActivo)})`;
     const lblMes   = once ? "Mes del ingreso" : "Aplicar desde";
     return `<div class="crow">
-      <div class="full"><label>Nombre del ingreso</label><input class="mini" data-t="ingreso" data-i="${i}" data-k="n" value="${esc(g.n)}" placeholder="Ej: Sueldo, Freelance…"></div>
+      <div class="full"><label>Nombre del ingreso</label><input class="mini" data-t="ingreso" data-i="${i}" data-k="n" value="${esc(nombreVigente(g,mesActivo))}" placeholder="Ej: Sueldo, Freelance…"></div>
       <div class="full"><label>${lblMonto}</label><input class="mini js-money${oculto?' masked':''}" type="text" inputmode="decimal" data-imonto="${i}" value="${numADisplay(m)}"></div>
       <div class="full"><label class="chk"><input type="checkbox" data-ionce="${i}" ${once?"checked":""}> Solo este mes (no se repite — ej: aguinaldo, factura única)</label></div>
       <div class="full"><label>${lblMes}</label>${desdeSel('i',i,mesActivo)}</div>
@@ -937,10 +963,10 @@ function renderAjustes(){
   const ingVisibles = config.ingresos.filter(g => !g.once || (g.hist||[]).some(h=>h.d===mesActivo)).length;
   const fijosRows = config.fijos.map((f,i)=>{
     const montoActual = montoVigente(f.hist, mesActivo);
-    const histTxt = (f.hist&&f.hist.length>1)? `<div class="hist">Historial: ${f.hist.map(h=>histLabel(h.d)+": $"+fmtN(h.m)).join(" · ")}</div>` : "";
+    const histTxt = (f.hist&&f.hist.length>1)? `<div class="hist">Historial: ${f.hist.map(histLinea).join(" · ")}</div>` : "";
     return `<div class="crow">
-      <div class="full"><label>Gasto fijo</label><input class="mini" data-t="fijo" data-i="${i}" data-k="n" value="${esc(f.n)}" placeholder="Ej: Alquiler, Luz, Netflix…"></div>
-      <div><label>Categoría</label><select class="mini" data-t="fijo" data-i="${i}" data-k="cat">${catOpts(f.cat)}</select></div>
+      <div class="full"><label>Gasto fijo</label><input class="mini" data-t="fijo" data-i="${i}" data-k="n" value="${esc(nombreVigente(f,mesActivo))}" placeholder="Ej: Alquiler, Luz, Netflix…"></div>
+      <div><label>Categoría</label><select class="mini" data-t="fijo" data-i="${i}" data-k="cat">${catOpts(catVigente(f,mesActivo))}</select></div>
       <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini js-money${oculto?' masked':''}" type="text" inputmode="decimal" data-fmonto="${i}" value="${numADisplay(montoActual)}"></div>
       <div class="full"><label>Aplicar cambio desde</label>${desdeSel('f',i,mesActivo)}</div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
@@ -1073,9 +1099,12 @@ function renderAjustes(){
     const cEl=$("content").querySelector("select[data-t='fijo'][data-i='"+i+"'][data-k='cat']");
     const mEl=$("content").querySelector("[data-fmonto='"+i+"']");
     const dEl=$("content").querySelector("[data-fdesde='"+i+"']");
-    if(nEl) config.fijos[i].n = nEl.value.trim() || "Gasto fijo";
-    if(cEl) config.fijos[i].cat = cEl.value;
-    setVig(config.fijos[i], (dEl&&dEl.value)||mesActivo, parseMonto(mEl.value)||0); // persistC + render
+    const f=config.fijos[i], desde=(dEl&&dEl.value)||mesActivo;
+    const nuevoN = nEl ? (nEl.value.trim()||"Gasto fijo") : null;
+    const nuevaCat = cEl ? cEl.value : null;
+    const nParam = (nuevoN!=null && nuevoN!==nombreVigente(f,desde)) ? nuevoN : null;   // solo versiona si cambió
+    const cParam = (nuevaCat!=null && nuevaCat!==catVigente(f,desde)) ? nuevaCat : null; // idem categoría
+    setVig(f, desde, parseMonto(mEl.value)||0, nParam, cParam); // persistC + render
     toast("Gasto fijo guardado ✓");
   });
   $("content").querySelectorAll(".fold-aj").forEach(el=>el.onclick=()=>{ const k=el.dataset.fold; ajFold[k]=!ajFold[k]; render(); });
