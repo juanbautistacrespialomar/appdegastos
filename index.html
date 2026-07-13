@@ -141,6 +141,17 @@
   .pinkey.ghost{ background:none; color:var(--muted); font-size:14px; }
   .lock-err{ color:var(--red); font-size:13px; min-height:18px; }
   .lock-sub{ color:var(--muted); font-size:13px; margin-top:-8px; }
+  #eyeBtn { display:inline-flex; align-items:center; justify-content:center; }
+  #eyeBtn .eye-ic { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  #eyeBtn .eye-slash { display:none; }
+  #eyeBtn.oculto .eye-slash { display:inline; }
+  .switch { position:relative; width:46px; height:26px; border-radius:999px; background:var(--card2); border:1px solid var(--border); padding:0; cursor:pointer; flex:0 0 auto; }
+  .switch .knob { position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:var(--sky); display:flex; align-items:center; justify-content:center; transition:transform .22s ease; }
+  .switch .knob svg { width:12px; height:12px; stroke:#04202B; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .switch .ic-sun { display:none; }
+  :root[data-theme="light"] .switch .knob { transform:translateX(20px); }
+  :root[data-theme="light"] .switch .ic-moon { display:none; }
+  :root[data-theme="light"] .switch .ic-sun { display:inline; }
 </style>
 </head>
 <body>
@@ -158,8 +169,8 @@
     <div class="row" style="gap:8px"><h1>Mis Gastos</h1></div>
     <div class="row" style="gap:8px">
       <button class="btn btn-ghost" id="installBtn" style="display:none" title="Instalar app">⬇ Instalar</button>
-      <button class="btn btn-ghost" id="eyeBtn" title="Ocultar/mostrar importes">👁</button>
-      <button class="btn btn-ghost" id="themeBtn" title="Cambiar tema claro/oscuro">🌙</button>
+      <button class="btn btn-ghost" id="eyeBtn" title="Ocultar/mostrar importes" aria-label="Ocultar o mostrar importes"><svg class="eye-ic" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><line class="eye-slash" x1="3" y1="3" x2="21" y2="21"/></svg></button>
+      <button class="switch" id="themeBtn" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro u oscuro" role="switch" aria-checked="false"><span class="knob"><svg class="ic-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.2" y1="4.2" x2="6" y2="6"/><line x1="18" y1="18" x2="19.8" y2="19.8"/><line x1="4.2" y1="19.8" x2="6" y2="18"/><line x1="18" y1="6" x2="19.8" y2="4.2"/></svg></span></button>
     </div>
   </div>
 
@@ -777,7 +788,7 @@ function proyeccion(){
 
 function render(){
   $("monthLabel").textContent = nombreMes(mesActivo);
-  $("eyeBtn").textContent = oculto ? "🙈" : "👁";
+  $("eyeBtn").classList.toggle("oculto", oculto);
   $("filtros").style.display = vista==="mov" ? "" : "none";
   $("fab").style.display = (vista==="resumen"||vista==="mov") ? "" : "none";
   poblarFiltroMedios();
@@ -1288,7 +1299,7 @@ const THEME_KEY="mg_theme";
 function aplicarTema(t){
   if(t==="light") document.documentElement.setAttribute("data-theme","light");
   else document.documentElement.removeAttribute("data-theme");
-  const b=$("themeBtn"); if(b) b.textContent = t==="light" ? "☀️" : "🌙";
+  const b=$("themeBtn"); if(b) b.setAttribute("aria-checked", t==="light");
   const meta=document.querySelector('meta[name="theme-color"]');
   if(meta) meta.setAttribute("content", t==="light" ? "#FFFFFF" : "#080C10");
 }
