@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Mis Gastos</title>
-<meta name="theme-color" content="#020617">
+<meta name="theme-color" content="#080C10">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://mis-gastos-recordatorios.juanbautistacrespialomar.workers.dev; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; object-src 'none';">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,8 +15,8 @@
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   :root {
-    --bg:#020617; --card:#0f172a; --card2:#1e293b; --border:#1e293b;
-    --txt:#f1f5f9; --muted:#64748b; --green:#10b981; --amber:#f59e0b; --sky:#38bdf8; --red:#f87171; --violet:#a855f7;
+    --bg:#080C10; --card:#0F151C; --card2:#18212B; --border:#22303C;
+    --txt:#E3EDF3; --muted:#6B8194; --green:#00E676; --amber:#FFA31A; --sky:#33C4E8; --red:#FF5C5C; --violet:#9D7BFF;
   }
   html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
   /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
@@ -32,7 +32,7 @@
   .header { gap:8px; margin-bottom:16px; }
   .btn { border:none; border-radius:10px; font:inherit; cursor:pointer; color:var(--txt); }
   .btn-ghost { background:var(--card2); padding:9px 12px; font-size:14px; display:inline-flex; align-items:center; gap:6px; }
-  .btn-ghost:active { background:#334155; }
+  .btn-ghost:active { background:#2A3A47; }
   .monthbar { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:8px 10px; margin-bottom:14px; }
   .monthbar .nav { background:none; border:none; color:var(--txt); font-size:22px; padding:4px 14px; cursor:pointer; line-height:1; }
   .monthbar .label { font-weight:600; }
@@ -44,7 +44,7 @@
   .s { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
   .s .l { font-size:10px; color:var(--muted); display:flex; align-items:center; gap:4px; }
   .s .v { font-size:13px; font-weight:600; margin-top:2px; }
-  .bottomnav { position:fixed; left:0; right:0; bottom:0; z-index:50; background:var(--card2); border-top:1px solid var(--border); padding-bottom:env(safe-area-inset-bottom); transition:transform .2s ease; }
+  .bottomnav { position:fixed; left:0; right:0; bottom:0; z-index:50; background:#0C141C; border-top:2px solid var(--sky); padding-bottom:env(safe-area-inset-bottom); transition:transform .2s ease; }
   /* Teclado abierto en iOS: en vez de dejar que Safari "levante" la barra fija y la deje
      flotando encima del teclado, la mandamos abajo (fuera de pantalla). El FAB también. */
   body.kb-open .bottomnav { transform:translateY(120%); }
@@ -53,14 +53,14 @@
   .bottomnav-inner { max-width:600px; margin:0 auto; display:flex; position:relative; }
   .tab { flex:1; position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 4px 8px; background:none; border:none; cursor:pointer; color:var(--muted); font:inherit; font-size:10px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; transition:color .25s; }
   .tab svg { width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-  .tab.active { color:var(--amber); }
+  .tab.active { color:var(--sky); }
   .tabind { position:absolute; top:0; left:0; width:25%; height:3px; display:flex; justify-content:center; transition:transform .32s cubic-bezier(.34,1.4,.5,1); pointer-events:none; }
-  .tabind::before { content:""; width:42px; height:3px; border-radius:0 0 3px 3px; background:var(--amber); }
+  .tabind::before { content:""; width:42px; height:3px; border-radius:0 0 3px 3px; background:var(--sky); }
   @keyframes tabpop { 0%{transform:scale(1)} 40%{transform:scale(1.28)} 100%{transform:scale(1)} }
   @keyframes viewin { from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none} }
   @media (prefers-reduced-motion: reduce){ .tabind{transition:none} .tab svg{animation:none !important} #content{animation:none !important} }
   .panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px; }
-  .panel .ptitle { font-size:14px; font-weight:600; color:#cbd5e1; margin:0 0 10px; }
+  .panel .ptitle { font-size:14px; font-weight:600; color:#C4D2DC; margin:0 0 10px; }
   .legend-row { display:flex; align-items:center; justify-content:space-between; font-size:14px; padding:4px 0; }
   .dot { width:12px; height:12px; border-radius:3px; display:inline-block; margin-right:8px; vertical-align:-1px; }
   .item { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:11px 12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
@@ -78,24 +78,24 @@
   .pin { color:var(--amber); } .pct { color:var(--muted); }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .grid .full { grid-column:1/-1; }
-  input,select { width:100%; min-width:0; background:var(--card2); border:1px solid #334155; border-radius:10px; padding:10px 11px; color:var(--txt); font:inherit; }
+  input,select { width:100%; min-width:0; background:var(--card2); border:1px solid #2A3A47; border-radius:10px; padding:10px 11px; color:var(--txt); font:inherit; }
   /* Combobox de descripción: input editable + lista que se despliega y filtra al tipear */
   .combo { position:relative; }
   .combo-list { display:none; position:absolute; left:0; right:0; top:calc(100% + 4px);
-    background:var(--card2); border:1px solid #334155; border-radius:10px;
+    background:var(--card2); border:1px solid #2A3A47; border-radius:10px;
     max-height:190px; overflow-y:auto; overscroll-behavior:contain; z-index:60; box-shadow:0 12px 28px rgba(0,0,0,.55); }
   .combo-list.up { top:auto; bottom:calc(100% + 4px); }
   .combo-opt { padding:11px 12px; font-size:14px; cursor:pointer; color:var(--txt);
     border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .combo-opt:last-child { border-bottom:none; }
-  .combo-opt:hover, .combo-opt:active { background:#334155; }
+  .combo-opt:hover, .combo-opt:active { background:#2A3A47; }
   .combo-empty { padding:11px 12px; font-size:13px; color:var(--muted); }
   input:focus,select:focus { outline:none; border-color:var(--green); }
   /* Respiro para scrollIntoView: al centrar/acercar un campo, que quede separado del teclado
      y del borde de arriba, no pegado. */
   input, select, textarea { scroll-margin-top:100px; scroll-margin-bottom:100px; }
   .btn-add { background:var(--green); padding:11px; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; gap:6px; }
-  .btn-add:active { background:#059669; }
+  .btn-add:active { background:#00B85E; }
   .crow { display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--card2); border-radius:10px; padding:8px; margin-bottom:8px; }
   .crow > div { min-width:0; }
   .crow .full { grid-column:1/-1; }
@@ -105,17 +105,17 @@
   .hist { font-size:10px; color:var(--muted); grid-column:1/-1; }
   .chk { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--txt); cursor:pointer; padding:2px 0; }
   .chk input[type=checkbox]{ width:18px; height:18px; min-width:18px; accent-color:var(--green); margin:0; }
-  .foot { text-align:center; font-size:11px; color:#334155; margin-top:22px; }
+  .foot { text-align:center; font-size:11px; color:#2A3A47; margin-top:22px; }
   .saldo-pos { color:var(--green); } .saldo-neg { color:var(--red); }
   text { font-family:system-ui,sans-serif; }
   .danger { background:#3f1d1d; color:#fca5a5; }
-  #fab { position:fixed; right:18px; bottom:calc(80px + env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; background:var(--green); color:#fff; font-size:30px; line-height:54px; text-align:center; border:none; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; z-index:51; transition:transform .2s ease, opacity .2s ease; }
-  #fab:active { background:#059669; }
+  #fab { position:fixed; right:18px; bottom:calc(80px + env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; background:var(--sky); color:#04202B; font-size:30px; line-height:54px; text-align:center; border:none; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; z-index:51; transition:transform .2s ease, opacity .2s ease; }
+  #fab:active { background:#1E9CBD; }
   /* El overlay se ancla al ÁREA REALMENTE VISIBLE (medida con visualViewport en JS): top al
      borde de arriba visible y height al alto visible. Así el bottom-sheet (align-items:flex-end)
      queda pegado justo por encima del teclado, sin el doble descuento que tenía antes
      (padding-bottom:--kb sobre un inset:0 que ya no reflejaba lo que se ve en iOS). */
-  .modal-bg { position:fixed; left:0; right:0; top:var(--vv-top,0px); height:var(--vv-h,100dvh); background:rgba(2,6,23,.7); display:none; align-items:flex-end; justify-content:center; z-index:60; overflow:hidden; overscroll-behavior:contain; transition:top .12s ease, height .12s ease; }
+  .modal-bg { position:fixed; left:0; right:0; top:var(--vv-top,0px); height:var(--vv-h,100dvh); background:rgba(8,12,16,.72); display:none; align-items:flex-end; justify-content:center; z-index:60; overflow:hidden; overscroll-behavior:contain; transition:top .12s ease, height .12s ease; }
   .modal-bg.open { display:flex; }
   .modal { background:var(--card); border:1px solid var(--border); border-radius:16px 16px 0 0; padding:16px; width:100%; max-width:600px; max-height:calc(100% - 16px); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
   /* Mientras hay un modal abierto, el fondo no scrollea (se mueve el cartel, no la pantalla de atrás) */
@@ -130,7 +130,7 @@
   .pindot.filled{ background:var(--amber); border-color:var(--amber); }
   .pinpad{ display:grid; grid-template-columns:repeat(3,68px); gap:14px; justify-content:center; }
   .pinkey{ width:68px; height:68px; border-radius:50%; background:var(--card2); color:var(--txt); font-size:24px; border:none; font:inherit; }
-  .pinkey:active{ background:#334155; }
+  .pinkey:active{ background:#2A3A47; }
   .pinkey.ghost{ background:none; color:var(--muted); font-size:14px; }
   .lock-err{ color:var(--red); font-size:13px; min-height:18px; }
   .lock-sub{ color:var(--muted); font-size:13px; margin-top:-8px; }
@@ -148,11 +148,10 @@
 </div>
 <div class="wrap">
   <div class="row between header">
-    <div class="row" style="gap:8px"><span style="font-size:22px">💰</span><h1>Mis Gastos</h1></div>
+    <div class="row" style="gap:8px"><h1>Mis Gastos</h1></div>
     <div class="row" style="gap:8px">
       <button class="btn btn-ghost" id="installBtn" style="display:none" title="Instalar app">⬇ Instalar</button>
       <button class="btn btn-ghost" id="eyeBtn" title="Ocultar/mostrar importes">👁</button>
-      <button class="btn btn-ghost" id="exportBtn">⤓ Exportar</button>
     </div>
   </div>
 
@@ -225,7 +224,7 @@
 <div id="modalUpd" class="modal-bg">
   <div class="modal">
     <div class="row between" style="margin-bottom:10px"><strong>🎉 Nueva versión disponible</strong></div>
-    <p id="upd-msg" style="color:#cbd5e1;font-size:14px;line-height:1.5;margin:0 0 16px"></p>
+    <p id="upd-msg" style="color:#C4D2DC;font-size:14px;line-height:1.5;margin:0 0 16px"></p>
     <div class="grid">
       <button class="btn btn-ghost" id="upd-later">Más tarde</button>
       <button class="btn btn-add" id="upd-now">⟳ Actualizar ahora</button>
@@ -238,7 +237,7 @@
 <div id="modalConfirm" class="modal-bg">
   <div class="modal">
     <div class="row between" style="margin-bottom:10px"><strong id="cf-title">Confirmar</strong><button id="cf-x" class="del" style="font-size:20px">✕</button></div>
-    <p id="cf-msg" style="color:#cbd5e1;font-size:14px;line-height:1.5;margin:0 0 16px"></p>
+    <p id="cf-msg" style="color:#C4D2DC;font-size:14px;line-height:1.5;margin:0 0 16px"></p>
     <div class="grid">
       <button class="btn btn-ghost" id="cf-cancel">Cancelar</button>
       <button class="btn btn-add" id="cf-ok">Confirmar</button>
@@ -262,10 +261,10 @@
   <div class="modal" style="text-align:center">
     <div style="font-size:34px;margin-bottom:6px">🔔</div>
     <strong style="font-size:16px;display:block;margin-bottom:8px">No te olvides de anotar</strong>
-    <p style="color:#cbd5e1;font-size:14px;line-height:1.5;margin:0 0 6px">
+    <p style="color:#C4D2DC;font-size:14px;line-height:1.5;margin:0 0 6px">
       Activá las notis y te aviso si te colgás o si la tarjeta empezó a transpirar. Un par por semana, nada más.
     </p>
-    <p style="color:#64748b;font-size:12px;margin:0 0 16px">Cero spam. Palabra de contador.</p>
+    <p style="color:#6B8194;font-size:12px;margin:0 0 16px">Cero spam. Palabra de contador.</p>
     <div class="grid">
       <button class="btn btn-ghost" id="invite-no">Ahora no</button>
       <button class="btn btn-add" id="invite-si">🔔 Dale, activá</button>
@@ -275,12 +274,12 @@
 
 <script>
 "use strict";
-const APP_VERSION = "6.23";
+const APP_VERSION = "6.24";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
 const TARJETAS = ["Visa","Mastercard","MercadoPago"];
-const COLORES = { "Comida":"#22c55e","Transporte":"#3b82f6","Salidas/Comidas":"#f59e0b","Salidas/Asados":"#f59e0b","Hogar":"#fb923c","Mantenimiento":"#ca8a04","Servicios":"#06b6d4","Suscripciones":"#6366f1","Salud":"#ec4899","Cuidado personal":"#f472b6","Ocio":"#fb7185","Educación":"#0ea5e9","Ropa":"#d946ef","Viajes":"#eab308","Mascotas":"#b45309","Regalos":"#f43f5e","Gimnasio":"#84cc16","Tecnología":"#0284c7","Niños":"#fbbf24","Impuestos":"#94a3b8","Alquiler":"#14b8a6","Cuotas":"#a855f7","Otros":"#64748b" };
+const COLORES = { "Comida":"#22c55e","Transporte":"#3b82f6","Salidas/Comidas":"#FFA31A","Salidas/Asados":"#FFA31A","Hogar":"#fb923c","Mantenimiento":"#ca8a04","Servicios":"#06b6d4","Suscripciones":"#6366f1","Salud":"#ec4899","Cuidado personal":"#f472b6","Ocio":"#fb7185","Educación":"#0ea5e9","Ropa":"#d946ef","Viajes":"#eab308","Mascotas":"#b45309","Regalos":"#f43f5e","Gimnasio":"#84cc16","Tecnología":"#0284c7","Niños":"#fbbf24","Impuestos":"#8B9CAB","Alquiler":"#14b8a6","Cuotas":"#9D7BFF","Otros":"#6B8194" };
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const MC = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
@@ -750,10 +749,10 @@ function donut(data,total){
   if(!total) return `<div class="empty">Sin gastos este mes.</div>`;
   const r=70,cx=100,cy=100,C=2*Math.PI*r; let acc=0,segs="";
   data.forEach(d=>{ const len=(d.value/total)*C;
-    segs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${COLORES[d.name]||'#64748b'}" stroke-width="26" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-acc}"></circle>`; acc+=len; });
+    segs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${COLORES[d.name]||'#6B8194'}" stroke-width="26" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-acc}"></circle>`; acc+=len; });
   return `<svg viewBox="0 0 200 200" width="100%" height="200" style="max-height:200px"><g transform="rotate(-90 ${cx} ${cy})">${segs}</g>
-    <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="#94a3b8" font-size="11">Gasto</text>
-    <text x="${cx}" y="${cy+15}" text-anchor="middle" fill="#f1f5f9" font-size="15" font-weight="700">${fmt(total)}</text></svg>`;
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="#8B9CAB" font-size="11">Gasto</text>
+    <text x="${cx}" y="${cy+15}" text-anchor="middle" fill="#E3EDF3" font-size="15" font-weight="700">${fmt(total)}</text></svg>`;
 }
 function proyeccion(){
   const arr=[]; for(let i=0;i<6;i++){ const ym=ymAdd(mesActivo,i); const c=computeMes(ym);
@@ -762,10 +761,10 @@ function proyeccion(){
   const W=330,H=180,pad=26,bw=30,gap=(W-pad*2-bw*6)/5,zero=H/2;
   let bars="";
   arr.forEach((a,i)=>{ const h=(Math.abs(a.saldo)/maxAbs)*(H/2-16); const x=pad+i*(bw+gap);
-    const y=a.saldo>=0?zero-h:zero; const col=a.saldo>=0?(a.actual?'#10b981':'#15803d'):'#f87171';
+    const y=a.saldo>=0?zero-h:zero; const col=a.saldo>=0?(a.actual?'#00E676':'#0FA85A'):'#FF5C5C';
     bars+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h,1)}" rx="3" fill="${col}"></rect>
-      <text x="${x+bw/2}" y="${H-4}" text-anchor="middle" fill="#64748b" font-size="10">${a.mes}</text>`; });
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="180"><line x1="${pad-6}" y1="${zero}" x2="${W-pad+6}" y2="${zero}" stroke="#334155" stroke-width="1"/>${bars}</svg>`;
+      <text x="${x+bw/2}" y="${H-4}" text-anchor="middle" fill="#6B8194" font-size="10">${a.mes}</text>`; });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="180"><line x1="${pad-6}" y1="${zero}" x2="${W-pad+6}" y2="${zero}" stroke="#2A3A47" stroke-width="1"/>${bars}</svg>`;
 }
 
 function render(){
@@ -814,7 +813,7 @@ function renderResumen(c){
   c.variables.forEach(v=>map[v.categoria]=(map[v.categoria]||0)+v.monto);
   const cats=Object.entries(map).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
   const total=c.gasto;
-  const leyenda=cats.map(x=>`<div class="legend-row"><span><span class="dot" style="background:${COLORES[x.name]||'#64748b'}"></span>${x.name}</span>
+  const leyenda=cats.map(x=>`<div class="legend-row"><span><span class="dot" style="background:${COLORES[x.name]||'#6B8194'}"></span>${x.name}</span>
     <span>${fmt(x.value)} <span class="pct">(${total?((x.value/total)*100).toFixed(0):0}%)</span></span></div>`).join("");
   $("content").innerHTML =
     `<div class="panel"><p class="ptitle">Gastos por categoría</p>${donut(cats,total)}<div style="margin-top:8px">${leyenda||''}</div></div>
@@ -836,10 +835,10 @@ function grupoCuotas(lista){
   orden.forEach(f=>{ const items=gc[f]; if(!items||!items.length) return;
     const sub=items.reduce((s,x)=>s+x.monto,0); const col=colCuotas[f]!==true;
     h+=`<div class="item fgroup-c" data-card="${esc(f)}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
-          <span class="bar" style="background:#a855f7"></span>
+          <span class="bar" style="background:#9D7BFF"></span>
           <div class="desc">${col?'▸':'▾'} ${esc(tarjetaLabel(f))} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
         <span class="amt">${fmt(sub)}</span></div>`;
-    if(!col) h+= items.map(q=>`<div class="sub">`+fila(q.nombre, "", q.monto, "#a855f7")+`</div>`).join("");
+    if(!col) h+= items.map(q=>`<div class="sub">`+fila(q.nombre, "", q.monto, "#9D7BFF")+`</div>`).join("");
   });
   return h;
 }
@@ -849,9 +848,9 @@ function renderMov(c){
   if(filtroActivo){
     const q=fTexto.trim().toLowerCase();
     let items=[];
-    c.fijos.forEach(f=>items.push({nombre:f.nombre, categoria:f.cat, medio:"", monto:f.monto, tipo:"Fijo", color:COLORES[f.cat]||"#f59e0b"}));
-    c.cuotas.forEach(x=>items.push({nombre:x.nombre, categoria:"Cuotas", medio:"", monto:x.monto, tipo:tarjetaLabel(x.fuente).replace("💳 ",""), color:"#a855f7"}));
-    c.variables.forEach(v=>items.push({nombre:v.descripcion||v.categoria, categoria:v.categoria, medio:v.medio, monto:v.monto, tipo:"Variable", color:COLORES[v.categoria]||"#64748b", id:v.id, fecha:v.fecha}));
+    c.fijos.forEach(f=>items.push({nombre:f.nombre, categoria:f.cat, medio:"", monto:f.monto, tipo:"Fijo", color:COLORES[f.cat]||"#FFA31A"}));
+    c.cuotas.forEach(x=>items.push({nombre:x.nombre, categoria:"Cuotas", medio:"", monto:x.monto, tipo:tarjetaLabel(x.fuente).replace("💳 ",""), color:"#9D7BFF"}));
+    c.variables.forEach(v=>items.push({nombre:v.descripcion||v.categoria, categoria:v.categoria, medio:v.medio, monto:v.monto, tipo:"Variable", color:COLORES[v.categoria]||"#6B8194", id:v.id, fecha:v.fecha}));
     const res=items.filter(it=>{
       if(fCat!=="__todas" && it.categoria!==fCat) return false;
       if(fMedio!=="__todos" && it.medio!==fMedio) return false;
@@ -864,7 +863,7 @@ function renderMov(c){
     $("content").innerHTML=h; return;
   }
   if(c.ingresos.length){ h+=`<div class="grouphdr"><span>Ingresos</span><span>${fmt(c.ingreso)}</span></div>`;
-    h+= c.ingresos.map(g=>fila(g.nombre, g.once?"Ingreso puntual (solo este mes)":"Ingreso mensual", g.monto,"#10b981")).join(""); }
+    h+= c.ingresos.map(g=>fila(g.nombre, g.once?"Ingreso puntual (solo este mes)":"Ingreso mensual", g.monto,"#00E676")).join(""); }
 
   h+=`<div class="grouphdr"><span>Gastos fijos</span><span>${fmt(c.tF)}</span></div>`;
   if(!c.fijos.length){ h+=`<div class="empty">Agregá tus gastos fijos desde Ajustes.</div>`; }
@@ -873,17 +872,17 @@ function renderMov(c){
     Object.keys(grupos).sort((a,b)=>grupos[b].reduce((s,x)=>s+x.monto,0)-grupos[a].reduce((s,x)=>s+x.monto,0)).forEach(cat=>{
       const items=grupos[cat]; const sub=items.reduce((s,x)=>s+x.monto,0); const col = colapsado[cat]!==false;
       h+=`<div class="item fgroup" data-cat="${esc(cat)}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
-            <span class="bar" style="background:${COLORES[cat]||'#64748b'}"></span>
+            <span class="bar" style="background:${COLORES[cat]||'#6B8194'}"></span>
             <div class="desc">${col?'▸':'▾'} ${esc(cat)} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
           <span class="amt">${fmt(sub)}</span></div>`;
-      if(!col) h+= items.map(f=>`<div class="sub">`+fila(f.nombre, "Fijo mensual", f.monto, COLORES[f.cat]||'#f59e0b')+`</div>`).join("");
+      if(!col) h+= items.map(f=>`<div class="sub">`+fila(f.nombre, "Fijo mensual", f.monto, COLORES[f.cat]||'#FFA31A')+`</div>`).join("");
     });
   }
 
   h+=`<div class="grouphdr"><span>Cuotas</span><span>${fmt(c.tC)}</span></div>`;
   h+= c.cuotas.length? grupoCuotas(c.cuotas) : `<div class="empty">Sin cuotas este mes.</div>`;
   h+=`<div class="grouphdr"><span>Variables</span><span>${fmt(c.tV)}</span><span style="text-transform:none;letter-spacing:0">tocá para ver</span></div>`;
-  h+= c.variables.length? c.variables.map(v=>fila(v.descripcion||v.categoria, v.categoria+" · "+v.medio+" · "+v.fecha.slice(8,10)+"/"+v.fecha.slice(5,7), v.monto, COLORES[v.categoria]||"#64748b", v.id, v.id)).join("") : `<div class="empty">Tocá el botón "+" para cargar un gasto.</div>`;
+  h+= c.variables.length? c.variables.map(v=>fila(v.descripcion||v.categoria, v.categoria+" · "+v.medio+" · "+v.fecha.slice(8,10)+"/"+v.fecha.slice(5,7), v.monto, COLORES[v.categoria]||"#6B8194", v.id, v.id)).join("") : `<div class="empty">Tocá el botón "+" para cargar un gasto.</div>`;
   $("content").innerHTML=h;
 }
 
@@ -898,10 +897,10 @@ function renderCuotas(){
     const sub = items.reduce((s,x)=>s+x.total,0);
     const col = colCuotas[fuente]!==true;
     let h=`<div class="item fgroup-c" data-card="${esc(fuente)}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
-        <span class="bar" style="background:#a855f7"></span>
+        <span class="bar" style="background:#9D7BFF"></span>
         <div class="desc">${col?'▸':'▾'} ${etiqueta} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
       <span class="amt">${fmt(sub)}</span></div>`;
-    if(!col) h+= items.map(x=>`<div class="sub">`+fila(x.q.n, "Cuota "+x.actual+` · quedan ${x.rest} ($${fmtN(x.q.m)}/mes)`, x.total, "#a855f7")+`</div>`).join("");
+    if(!col) h+= items.map(x=>`<div class="sub">`+fila(x.q.n, "Cuota "+x.actual+` · quedan ${x.rest} ($${fmtN(x.q.m)}/mes)`, x.total, "#9D7BFF")+`</div>`).join("");
     return h;
   }
   const totalRest = config.cuotas.reduce((s,q)=>{ const k=ymDiff(q.d,mesActivo); if(k<0||k>(q.t-q.c)) return s; return s+((q.t-q.c)-k+1)*q.m; },0);
@@ -1237,13 +1236,13 @@ let detId=null;
 function abrirModalDet(id){
   const v=mov.find(x=>x.id===id); if(!v) return;
   detId=id;
-  const col=COLORES[v.categoria]||"#64748b";
+  const col=COLORES[v.categoria]||"#6B8194";
   const f=v.fecha;
   const fechaTxt=f.slice(8,10)+"/"+f.slice(5,7)+"/"+f.slice(0,4);
   $("d-body").innerHTML=
     `<div style="text-align:center;margin:4px 0 16px">
        <div style="font-size:32px;font-weight:700">${fmt(v.monto)}</div>
-       ${v.descripcion?`<div style="color:#cbd5e1;margin-top:6px;font-size:15px">${esc(v.descripcion)}</div>`:'<div style="color:var(--muted);margin-top:6px;font-size:13px">Sin descripción</div>'}
+       ${v.descripcion?`<div style="color:#C4D2DC;margin-top:6px;font-size:15px">${esc(v.descripcion)}</div>`:'<div style="color:var(--muted);margin-top:6px;font-size:13px">Sin descripción</div>'}
      </div>
      <div class="crow" style="grid-template-columns:1fr 1fr;cursor:default">
        <div><label>Categoría</label><div style="font-size:14px;margin-top:2px"><span class="dot" style="background:${col}"></span>${esc(v.categoria)}</div></div>
@@ -1274,7 +1273,6 @@ function exportar(){
 
 $("prevMonth").onclick=()=>{ mesActivo=ymAdd(mesActivo,-1); render(); };
 $("nextMonth").onclick=()=>{ mesActivo=ymAdd(mesActivo,1); render(); };
-$("exportBtn").onclick=exportar;
 $("eyeBtn").onclick=()=>{ oculto=!oculto; render(); };
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ if(vista===t.dataset.v){ const w=document.querySelector(".wrap"); (w||window).scrollTo({top:0,behavior:"smooth"}); return; } vista=t.dataset.v; render(); });
 
