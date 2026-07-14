@@ -28,7 +28,7 @@
   html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
   /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
      puede hacer su auto-scroll caótico de la página — el mismo motivo por el que el modal anda bien. */
-  body { height:var(--vv-h,100dvh); overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; position:relative; }
+  body { height:100dvh; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; position:relative; }
   /* .wrap ES el scroller de la app: altura = área realmente visible (--vv-h, que se achica cuando
      sube el teclado). Con el body bloqueado, el scroll de todo el contenido pasa por acá, dentro de
      un alto controlado. Por eso scrollIntoView puede centrar bien un campo sin que iOS lo pise. */
