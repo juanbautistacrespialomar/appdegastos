@@ -21,10 +21,16 @@
     --nav:#0C141C; --hover:#2A3A47; --nav-glass:rgba(12,20,28,.62);
   }
   :root[data-theme="light"] {
-    --bg:#FFFFFF; --card:#F2F5F9; --card2:#E9EDF3; --border:#D8DEE6;
+    --bg:#EEF1F4; --card:#FFFFFF; --card2:#F4F6F9; --border:#E2E7EC;
     --txt:#0F1720; --muted:#64748B; --green:#059669; --amber:#D97706; --sky:#0EA5C9; --red:#DC2626; --violet:#7C5CE0;
-    --nav:#FFFFFF; --hover:#E3E8EE; --nav-glass:rgba(255,255,255,.68);
+    --nav:#FFFFFF; --hover:#E9EDF1; --nav-glass:rgba(255,255,255,.72);
   }
+  /* Tema claro: las tarjetas blancas flotan sobre el fondo gris con una sombra muy sutil. */
+  :root[data-theme="light"] .monthbar,
+  :root[data-theme="light"] .c,
+  :root[data-theme="light"] .s,
+  :root[data-theme="light"] .panel,
+  :root[data-theme="light"] .item { box-shadow:0 1px 3px rgba(15,23,32,.06); }
   html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
   /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
      puede hacer su auto-scroll caótico de la página — el mismo motivo por el que el modal anda bien. */
