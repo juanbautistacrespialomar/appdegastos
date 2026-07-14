@@ -28,7 +28,12 @@
   html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
   /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
      puede hacer su auto-scroll caótico de la página — el mismo motivo por el que el modal anda bien. */
-  body { height:100dvh; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; position:relative; }
+  /* iOS standalone: height:100dvh NO llega al fondo físico (deja afuera la franja del home
+     indicator) y aparece un hueco abajo de la nav. Pineamos el body con position:fixed a los 4
+     bordes: con viewport-fit=cover, bottom:0 sí resuelve contra el borde físico real de la
+     pantalla (edge-to-edge). La nav sigue en flujo, así que toda la lógica de teclado no cambia. */
+  html { height:100%; }
+  body { position:fixed; top:0; left:0; right:0; bottom:0; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; }
   /* .wrap ES el scroller de la app: altura = área realmente visible (--vv-h, que se achica cuando
      sube el teclado). Con el body bloqueado, el scroll de todo el contenido pasa por acá, dentro de
      un alto controlado. Por eso scrollIntoView puede centrar bien un campo sin que iOS lo pise. */
@@ -1672,22 +1677,26 @@ window.addEventListener("appinstalled", () => {
   function R(sel){ var e=document.querySelector(sel); return e?e.getBoundingClientRect():null; }
   function upd(tag){
     try{
-      var b=document.body.getBoundingClientRect();
-      var nav=R('.bottomnav'), wrap=R('.wrap');
+      var nav=R('.bottomnav');
       var ih=Math.round(window.innerHeight);
       var vh=window.visualViewport?Math.round(window.visualViewport.height):ih;
-      var csb=getComputedStyle(document.body);
-      var csn=nav?getComputedStyle(document.querySelector('.bottomnav')):null;
+      var ch=Math.round(document.documentElement.clientHeight);
+      var sh=Math.round(window.screen.height);                 // pantalla FISICA (CSS px)
+      var sa=(window.navigator.standalone===true) ||
+             (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+      // valor real de env(safe-area-inset-bottom): lo medimos con una sonda
+      var probe=document.createElement('div');
+      probe.style.cssText='position:fixed;bottom:0;left:0;width:0;visibility:hidden;height:env(safe-area-inset-bottom)';
+      document.body.appendChild(probe);
+      var sab=Math.round(probe.getBoundingClientRect().height); probe.remove();
       var L=[];
-      L.push('['+tag+']  innerH='+ih+'  vvH='+vh);
-      L.push('bodyH='+Math.round(b.height)+'  bodyBottom='+Math.round(b.bottom));
-      if(wrap) L.push('wrapH='+Math.round(wrap.height));
+      L.push('['+tag+']  standalone='+(sa?'SI':'NO'));
+      L.push('innerH='+ih+'  vvH='+vh+'  clientH='+ch+'  screenH='+sh);
+      L.push('safe-area-bottom = '+sab+'px');
       if(nav){
-        L.push('navTop='+Math.round(nav.top)+'  navBottom='+Math.round(nav.bottom)+'  navH='+Math.round(nav.height));
-        L.push('>>> HUECO ABAJO = '+Math.round(ih-nav.bottom)+' px <<<');
+        L.push('navBottom='+Math.round(nav.bottom)+'  navH='+Math.round(nav.height));
+        L.push('>>> hueco vs pantalla = '+(sh-Math.round(nav.bottom))+' px <<<');
       }
-      L.push('body: display='+csb.display+' pos='+csb.position+' h='+csb.height);
-      if(csn) L.push('nav: pos='+csn.position+' flex='+csn.flex);
       document.getElementById('dbg').textContent=L.join('\n');
     }catch(e){ document.getElementById('dbg').textContent='err: '+e.message; }
   }
