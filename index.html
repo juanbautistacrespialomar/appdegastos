@@ -26,19 +26,15 @@
     --nav:#FFFFFF; --hover:#E3E8EE;
   }
   html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-  /* Camino 1 (best-effort): el fondo del <html> el navegador lo suele propagar a TODA la
-     superficie del webview, incluso a la zona muerta que queda bajo el viewport en instalaciones
-     viejas. Poniéndolo del color de la barra, SI iOS lo propaga, esa franja toma el color de la
-     nav y parece que la barra llega al fondo. Si no lo propaga, no rompe nada (queda igual). */
-  html { background:var(--nav); }
   /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
      puede hacer su auto-scroll caótico de la página — el mismo motivo por el que el modal anda bien. */
-  /* iOS standalone: height:100dvh NO llega al fondo físico (deja afuera la franja del home
-     indicator) y aparece un hueco abajo de la nav. Pineamos el body con position:fixed a los 4
-     bordes: con viewport-fit=cover, bottom:0 sí resuelve contra el borde físico real de la
-     pantalla (edge-to-edge). La nav sigue en flujo, así que toda la lógica de teclado no cambia. */
-  html { height:100%; }
-  body { position:fixed; top:0; left:0; right:0; bottom:0; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; }
+  body { height:100dvh; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; position:relative; }
+  /* Con black-translucent el texto de la barra de estado (hora/batería) lo pinta iOS en BLANCO,
+     por encima del contenido. En modo oscuro se lee bien; en modo claro, sobre fondo claro, sería
+     ilegible. Solución: una franja fija del alto EXACTO de la isla (env(safe-area-inset-top)),
+     siempre oscura, en ambos temas. Así el blanco de iOS siempre cae sobre oscuro. Si el celu no
+     tiene isla, env vale 0 → la franja no ocupa nada. */
+  .statusbar-bg { position:fixed; top:0; left:0; right:0; height:env(safe-area-inset-top); background:#080C10; z-index:55; pointer-events:none; }
   /* .wrap ES el scroller de la app: altura = área realmente visible (--vv-h, que se achica cuando
      sube el teclado). Con el body bloqueado, el scroll de todo el contenido pasa por acá, dentro de
      un alto controlado. Por eso scrollIntoView puede centrar bien un campo sin que iOS lo pise. */
@@ -165,6 +161,7 @@
 </style>
 </head>
 <body>
+<div class="statusbar-bg"></div>
 <div id="lockScreen">
   <div style="font-size:40px">🔒</div>
   <div id="lock-title" style="font-weight:600;font-size:16px">Ingresá tu PIN</div>
