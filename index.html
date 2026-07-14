@@ -9,7 +9,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://mis-gastos-recordatorios.juanbautistacrespialomar.workers.dev; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; object-src 'none';">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Tu Contador">
 <link rel="apple-touch-icon" href="icon-512.png">
 <link rel="manifest" href="manifest.json">
@@ -26,6 +26,11 @@
     --nav:#FFFFFF; --hover:#E3E8EE;
   }
   html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  /* Camino 1 (best-effort): el fondo del <html> el navegador lo suele propagar a TODA la
+     superficie del webview, incluso a la zona muerta que queda bajo el viewport en instalaciones
+     viejas. Poniéndolo del color de la barra, SI iOS lo propaga, esa franja toma el color de la
+     nav y parece que la barra llega al fondo. Si no lo propaga, no rompe nada (queda igual). */
+  html { background:var(--nav); }
   /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
      puede hacer su auto-scroll caótico de la página — el mismo motivo por el que el modal anda bien. */
   /* iOS standalone: height:100dvh NO llega al fondo físico (deja afuera la franja del home
@@ -1669,41 +1674,5 @@ window.addEventListener("appinstalled", () => {
   deferredPrompt = null;
 });
 </script>
-
-<!-- ===== SONDA DE PINTABILIDAD (temporal) ===== -->
-<div id="dbg" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(0,0,0,.86);color:#0f0;font:11px/1.35 monospace;padding:6px 8px;white-space:pre;pointer-events:none;letter-spacing:.2px"></div>
-<script>
-(function(){
-  // Tiras finitas empujadas cada vez mas abajo del borde del viewport. La que llegue al borde
-  // FISICO de la pantalla nos dice cuanto se puede pintar por debajo del webview.
-  var COLORES=[['#FF3B30',0],['#FF9500',-16],['#FFCC00',-32],['#34C759',-48],['#00C7BE',-64],['#0A84FF',-80]];
-  COLORES.forEach(function(c){
-    var s=document.createElement('div');
-    s.style.cssText='position:fixed;left:0;right:0;height:6px;z-index:99990;pointer-events:none;'+
-                    'background:'+c[0]+';bottom:'+c[1]+'px;';
-    document.body.appendChild(s);
-  });
-  function R(sel){ var e=document.querySelector(sel); return e?e.getBoundingClientRect():null; }
-  function upd(tag){
-    try{
-      var nav=R('.bottomnav');
-      var ih=Math.round(window.innerHeight);
-      var sh=Math.round(window.screen.height);
-      var sa=(window.navigator.standalone===true) ||
-             (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-      var L=[];
-      L.push('['+tag+']  standalone='+(sa?'SI':'NO'));
-      L.push('innerH='+ih+'  screenH='+sh);
-      L.push('tiras bottom: rojo0 naran-16 amar-32');
-      L.push('       verde-48 teal-64 azul-80');
-      if(nav) L.push('navBottom='+Math.round(nav.bottom));
-      document.getElementById('dbg').textContent=L.join('\n');
-    }catch(e){ document.getElementById('dbg').textContent='err: '+e.message; }
-  }
-  [0,150,400,800,1500].forEach(function(t){ setTimeout(function(){upd('t='+t+'ms');},t); });
-  setInterval(function(){upd('live');},1500);
-})();
-</script>
-<!-- ===== FIN SONDA ===== -->
 </body>
 </html>
