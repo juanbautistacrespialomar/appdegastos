@@ -1693,7 +1693,11 @@ window.addEventListener("appinstalled", () => {
     document.body.appendChild(probe);
     var top=Math.round(probe.getBoundingClientRect().height); probe.remove();
     var real=(window.screen && window.screen.height ? window.screen.height : window.innerHeight) - top;
-    var h=Math.max(window.innerHeight, real);
+    // +6 de sobre-cobertura: screen.height viene redondeado a entero pero la pantalla real puede
+    // ser una fracción más alta; ese medio pixel deja ver el fondo del html (el "hilito"). Con el
+    // excedente el body pinta hasta el borde; lo que sobra se recorta y no molesta (los labels
+    // siguen sostenidos por el padding-bottom del safe-area, no bajan al home indicator).
+    var h=Math.max(window.innerHeight, real) + 6;
     document.documentElement.style.setProperty('--saH', h + 'px');
   }
   setH();
