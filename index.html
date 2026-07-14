@@ -62,18 +62,23 @@
   .s { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
   .s .l { font-size:10px; color:var(--muted); display:flex; align-items:center; gap:4px; }
   .s .v { font-size:13px; font-weight:600; margin-top:2px; }
-  .bottomnav { flex:0 0 auto; width:100%; z-index:50; background:var(--nav); border-top:2px solid var(--sky); padding-bottom:env(safe-area-inset-bottom); transition:transform .2s ease; }
+  /* Barra flotante estilo isla: el wrapper (.bottomnav) es transparente y crea el aire alrededor;
+     la píldora redondeada con sombra es .bottomnav-inner. Sigue en flujo (flex:0 0 auto) para no
+     reabrir el tema del teclado. El padding-bottom = safe-area + aire despega la píldora del borde
+     y del home indicator, así el pixel exacto del fondo deja de importar. */
+  .bottomnav { flex:0 0 auto; width:100%; z-index:50; background:transparent; padding:0 14px calc(env(safe-area-inset-bottom) + 14px); transition:transform .2s ease; }
   /* Teclado abierto en iOS: en vez de dejar que Safari "levante" la barra fija y la deje
      flotando encima del teclado, la mandamos abajo (fuera de pantalla). El FAB también. */
   body.kb-open .bottomnav { transform:translateY(120%); }
   body.kb-open #fab { transform:translateY(220%); opacity:0; pointer-events:none; }
   body.kb-open .wrap { padding-bottom:55vh; }
-  .bottomnav-inner { max-width:600px; margin:0 auto; display:flex; position:relative; }
-  .tab { flex:1; position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 4px 8px; background:none; border:none; cursor:pointer; color:var(--muted); font:inherit; font-size:10px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; transition:color .25s; }
-  .tab svg { width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .bottomnav-inner { max-width:440px; margin:0 auto; display:flex; position:relative; background:var(--nav); border:1px solid var(--border); border-radius:26px; box-shadow:0 8px 28px rgba(0,0,0,.45); padding:6px 8px; }
+  .tab { flex:1; position:relative; display:flex; align-items:center; justify-content:center; padding:11px 0; background:none; border:none; cursor:pointer; color:var(--muted); transition:color .25s; }
+  .tab span { display:none; }
+  .tab svg { width:25px; height:25px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; position:relative; z-index:1; }
   .tab.active { color:var(--sky); }
-  .tabind { position:absolute; top:0; left:0; width:25%; height:3px; display:flex; justify-content:center; transition:transform .32s cubic-bezier(.34,1.4,.5,1); pointer-events:none; }
-  .tabind::before { content:""; width:42px; height:3px; border-radius:0 0 3px 3px; background:var(--sky); }
+  .tab.active::before { content:""; position:absolute; top:50%; left:50%; width:48px; height:36px; transform:translate(-50%,-50%); background:rgba(51,196,232,.15); border-radius:13px; }
+  .tabind { display:none; }
   @keyframes tabpop { 0%{transform:scale(1)} 40%{transform:scale(1.28)} 100%{transform:scale(1)} }
   @keyframes viewin { from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none} }
   @media (prefers-reduced-motion: reduce){ .tabind{transition:none} .tab svg{animation:none !important} #content{animation:none !important} }
@@ -127,7 +132,7 @@
   .saldo-pos { color:var(--green); } .saldo-neg { color:var(--red); }
   text { font-family:system-ui,sans-serif; }
   .danger { background:#3f1d1d; color:#fca5a5; }
-  #fab { position:absolute; right:18px; bottom:calc(80px + env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; background:var(--sky); color:#04202B; font-size:30px; line-height:54px; text-align:center; border:none; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; z-index:51; transition:transform .2s ease, opacity .2s ease; }
+  #fab { position:absolute; right:18px; bottom:calc(90px + env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; background:var(--sky); color:#04202B; font-size:30px; line-height:54px; text-align:center; border:none; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; z-index:51; transition:transform .2s ease, opacity .2s ease; }
   #fab:active { background:#1E9CBD; }
   /* El overlay se ancla al ÁREA REALMENTE VISIBLE (medida con visualViewport en JS): top al
      borde de arriba visible y height al alto visible. Así el bottom-sheet (align-items:flex-end)
@@ -1705,22 +1710,6 @@ window.addEventListener("appinstalled", () => {
   [60,200,500,1000].forEach(function(t){ setTimeout(setH,t); });
   window.addEventListener('resize', setH);
   window.addEventListener('orientationchange', function(){ setTimeout(setH,300); });
-
-  // readout mínimo (sacar cuando confirmemos)
-  var d=document.createElement('div');
-  d.style.cssText='position:fixed;left:0;bottom:0;z-index:99999;background:rgba(0,0,0,.8);'+
-                  'color:#0f0;font:10px/1.3 monospace;padding:3px 6px;pointer-events:none;white-space:pre';
-  document.body.appendChild(d);
-  function rd(){
-    var nav=document.querySelector('.bottomnav');
-    var nb=nav?Math.round(nav.getBoundingClientRect().bottom):'?';
-    var saH=getComputedStyle(document.documentElement).getPropertyValue('--saH').trim();
-    d.textContent='sa='+(sa?'1':'0')+' innerH='+Math.round(window.innerHeight)+
-                  ' screenH='+Math.round(window.screen.height)+
-                  ' saH='+saH+' bodyH='+Math.round(document.body.getBoundingClientRect().height)+
-                  ' navBottom='+nb;
-  }
-  rd(); setInterval(rd,1000);
 })();
 </script>
 <!-- ===== FIN ===== -->
