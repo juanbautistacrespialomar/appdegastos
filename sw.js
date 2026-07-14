@@ -9,7 +9,7 @@
      "versión nueva" del index.html para no quedarse pegado a la copia vieja.
    Para forzar una limpieza total, subí el número de versión del cache (CACHE). */
 
-const CACHE = "mis-gastos-v15";
+const CACHE = "mis-gastos-v16";
 const ASSETS = [
   "./",
   "./index.html",

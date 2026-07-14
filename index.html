@@ -18,12 +18,12 @@
   :root {
     --bg:#080C10; --card:#0F151C; --card2:#18212B; --border:#22303C;
     --txt:#E3EDF3; --muted:#6B8194; --green:#00E676; --amber:#FFA31A; --sky:#33C4E8; --red:#FF5C5C; --violet:#9D7BFF;
-    --nav:#0C141C; --hover:#2A3A47;
+    --nav:#0C141C; --hover:#2A3A47; --nav-glass:rgba(12,20,28,.62);
   }
   :root[data-theme="light"] {
     --bg:#FFFFFF; --card:#F2F5F9; --card2:#E9EDF3; --border:#D8DEE6;
     --txt:#0F1720; --muted:#64748B; --green:#059669; --amber:#D97706; --sky:#0EA5C9; --red:#DC2626; --violet:#7C5CE0;
-    --nav:#FFFFFF; --hover:#E3E8EE;
+    --nav:#FFFFFF; --hover:#E3E8EE; --nav-glass:rgba(255,255,255,.68);
   }
   html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
   /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
@@ -43,7 +43,7 @@
   /* .wrap ES el scroller de la app: altura = área realmente visible (--vv-h, que se achica cuando
      sube el teclado). Con el body bloqueado, el scroll de todo el contenido pasa por acá, dentro de
      un alto controlado. Por eso scrollIntoView puede centrar bien un campo sin que iOS lo pise. */
-  .wrap { width:100%; max-width:600px; box-sizing:border-box; flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + var(--kb,0px)); }
+  .wrap { width:100%; max-width:600px; box-sizing:border-box; flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:calc(16px + env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom) + 92px + var(--kb,0px)); }
   .row { display:flex; align-items:center; }
   .between { justify-content:space-between; }
   h1 { font-size:20px; margin:0; }
@@ -66,13 +66,13 @@
      la píldora redondeada con sombra es .bottomnav-inner. Sigue en flujo (flex:0 0 auto) para no
      reabrir el tema del teclado. El padding-bottom = safe-area + aire despega la píldora del borde
      y del home indicator, así el pixel exacto del fondo deja de importar. */
-  .bottomnav { flex:0 0 auto; width:100%; z-index:50; background:transparent; padding:0 14px calc(env(safe-area-inset-bottom) + 14px); transition:transform .2s ease; }
+  .bottomnav { position:absolute; left:0; right:0; bottom:0; z-index:50; background:transparent; pointer-events:none; padding:0 14px calc(env(safe-area-inset-bottom) + 14px); transition:transform .2s ease; }
   /* Teclado abierto en iOS: en vez de dejar que Safari "levante" la barra fija y la deje
      flotando encima del teclado, la mandamos abajo (fuera de pantalla). El FAB también. */
   body.kb-open .bottomnav { transform:translateY(120%); }
   body.kb-open #fab { transform:translateY(220%); opacity:0; pointer-events:none; }
   body.kb-open .wrap { padding-bottom:55vh; }
-  .bottomnav-inner { max-width:440px; margin:0 auto; display:flex; position:relative; background:var(--nav); border:1px solid var(--border); border-radius:26px; box-shadow:0 8px 28px rgba(0,0,0,.45); padding:6px 8px; }
+  .bottomnav-inner { max-width:440px; margin:0 auto; display:flex; position:relative; pointer-events:auto; background:var(--nav-glass); -webkit-backdrop-filter:blur(22px) saturate(1.5); backdrop-filter:blur(22px) saturate(1.5); border:1px solid var(--border); border-radius:26px; box-shadow:0 4px 16px rgba(0,0,0,.22); padding:6px 8px; }
   .tab { flex:1; position:relative; display:flex; align-items:center; justify-content:center; padding:11px 0; background:none; border:none; cursor:pointer; color:var(--muted); transition:color .25s; }
   .tab span { display:none; }
   .tab svg { width:25px; height:25px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; position:relative; z-index:1; }
@@ -1688,6 +1688,7 @@ window.addEventListener("appinstalled", () => {
   var sa = (window.navigator.standalone===true) ||
            (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
   if(sa) document.documentElement.classList.add('sa');
+  var maxSaH = 0;
   function setH(){
     // En este iOS innerHeight viene corto (le descuenta la barra de estado) aunque el webview
     // es full-screen. screen.height sí conoce la pantalla real. Usamos screenH y le restamos lo
@@ -1698,18 +1699,17 @@ window.addEventListener("appinstalled", () => {
     document.body.appendChild(probe);
     var top=Math.round(probe.getBoundingClientRect().height); probe.remove();
     var real=(window.screen && window.screen.height ? window.screen.height : window.innerHeight) - top;
-    // +6 de sobre-cobertura: screen.height viene redondeado a entero pero la pantalla real puede
-    // ser una fracción más alta; ese medio pixel deja ver el fondo del html (el "hilito"). Con el
-    // excedente el body pinta hasta el borde; lo que sobra se recorta y no molesta (los labels
-    // siguen sostenidos por el padding-bottom del safe-area, no bajan al home indicator).
     var h=Math.max(window.innerHeight, real) + 6;
-    document.documentElement.style.setProperty('--saH', h + 'px');
+    // Nunca achicar: nos quedamos con el máximo visto. Así la barra baja a lo más bajo y no
+    // "rebota" hacia arriba cuando iOS reporta un alto menor en alguna re-medida.
+    if(h>maxSaH) maxSaH=h;
+    document.documentElement.style.setProperty('--saH', maxSaH + 'px');
   }
   setH();
   // iOS a veces reporta mal el alto en el primer paint y lo corrige un toque después:
   [60,200,500,1000].forEach(function(t){ setTimeout(setH,t); });
   window.addEventListener('resize', setH);
-  window.addEventListener('orientationchange', function(){ setTimeout(setH,300); });
+  window.addEventListener('orientationchange', function(){ maxSaH=0; setTimeout(setH,300); });
 })();
 </script>
 <!-- ===== FIN ===== -->
