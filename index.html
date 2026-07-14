@@ -119,12 +119,12 @@
   .combo-opt:last-child { border-bottom:none; }
   .combo-opt:hover, .combo-opt:active { background:var(--hover); }
   .combo-empty { padding:11px 12px; font-size:13px; color:var(--muted); }
-  input:focus,select:focus { outline:none; border-color:var(--green); }
+  input:focus,select:focus { outline:none; border-color:var(--sky); }
   /* Respiro para scrollIntoView: al centrar/acercar un campo, que quede separado del teclado
      y del borde de arriba, no pegado. */
   input, select, textarea { scroll-margin-top:100px; scroll-margin-bottom:100px; }
-  .btn-add { background:var(--green); padding:11px; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; gap:6px; }
-  .btn-add:active { background:#00B85E; }
+  .btn-add { background:var(--sky); color:#04202B; padding:11px; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .btn-add:active { filter:brightness(.92); }
   .crow { display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--card2); border-radius:10px; padding:8px; margin-bottom:8px; }
   .crow > div { min-width:0; }
   .crow .full { grid-column:1/-1; }
@@ -133,7 +133,7 @@
   .masked { -webkit-text-security:disc; text-security:disc; }
   .hist { font-size:10px; color:var(--muted); grid-column:1/-1; }
   .chk { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--txt); cursor:pointer; padding:2px 0; }
-  .chk input[type=checkbox]{ width:18px; height:18px; min-width:18px; accent-color:var(--green); margin:0; }
+  .chk input[type=checkbox]{ width:18px; height:18px; min-width:18px; accent-color:var(--sky); margin:0; }
   .foot { text-align:center; font-size:11px; color:#2A3A47; margin-top:22px; }
   .saldo-pos { color:var(--green); } .saldo-neg { color:var(--red); }
   text { font-family:system-ui,sans-serif; }
