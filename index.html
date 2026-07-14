@@ -9,7 +9,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://mis-gastos-recordatorios.juanbautistacrespialomar.workers.dev; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; object-src 'none';">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Tu Contador">
 <link rel="apple-touch-icon" href="icon-512.png">
 <link rel="manifest" href="manifest.json">
@@ -1675,28 +1675,25 @@ window.addEventListener("appinstalled", () => {
 <script>
 (function(){
   function R(sel){ var e=document.querySelector(sel); return e?e.getBoundingClientRect():null; }
+  function probe(prop){
+    var p=document.createElement('div');
+    p.style.cssText='position:fixed;bottom:0;left:0;width:0;visibility:hidden;height:env('+prop+')';
+    document.body.appendChild(p); var h=Math.round(p.getBoundingClientRect().height); p.remove(); return h;
+  }
   function upd(tag){
     try{
       var nav=R('.bottomnav');
       var ih=Math.round(window.innerHeight);
-      var vh=window.visualViewport?Math.round(window.visualViewport.height):ih;
-      var ch=Math.round(document.documentElement.clientHeight);
-      var sh=Math.round(window.screen.height);                 // pantalla FISICA (CSS px)
+      var sh=Math.round(window.screen.height);
       var sa=(window.navigator.standalone===true) ||
              (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-      // valor real de env(safe-area-inset-bottom): lo medimos con una sonda
-      var probe=document.createElement('div');
-      probe.style.cssText='position:fixed;bottom:0;left:0;width:0;visibility:hidden;height:env(safe-area-inset-bottom)';
-      document.body.appendChild(probe);
-      var sab=Math.round(probe.getBoundingClientRect().height); probe.remove();
+      var muerta=sh-ih;                         // <-- LO QUE IMPORTA: si ~0, webview full-screen
       var L=[];
       L.push('['+tag+']  standalone='+(sa?'SI':'NO'));
-      L.push('innerH='+ih+'  vvH='+vh+'  clientH='+ch+'  screenH='+sh);
-      L.push('safe-area-bottom = '+sab+'px');
-      if(nav){
-        L.push('navBottom='+Math.round(nav.bottom)+'  navH='+Math.round(nav.height));
-        L.push('>>> hueco vs pantalla = '+(sh-Math.round(nav.bottom))+' px <<<');
-      }
+      L.push('innerH='+ih+'  screenH='+sh);
+      L.push('>>> ZONA MUERTA = '+muerta+' px <<<');
+      L.push('safe-top='+probe('safe-area-inset-top')+'  safe-bottom='+probe('safe-area-inset-bottom'));
+      if(nav) L.push('navBottom='+Math.round(nav.bottom)+' (=innerH? '+(Math.round(nav.bottom)===ih?'SI':'NO')+')');
       document.getElementById('dbg').textContent=L.join('\n');
     }catch(e){ document.getElementById('dbg').textContent='err: '+e.message; }
   }
