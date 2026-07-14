@@ -1684,8 +1684,17 @@ window.addEventListener("appinstalled", () => {
            (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
   if(sa) document.documentElement.classList.add('sa');
   function setH(){
-    // innerHeight es el alto real del webview; en full-screen = pantalla completa.
-    document.documentElement.style.setProperty('--saH', window.innerHeight + 'px');
+    // En este iOS innerHeight viene corto (le descuenta la barra de estado) aunque el webview
+    // es full-screen. screen.height sí conoce la pantalla real. Usamos screenH y le restamos lo
+    // que iOS reserva arriba (safe-area-inset-top), medido con una sonda, para no meter el
+    // contenido bajo la isla. Nos quedamos con el mayor entre eso e innerHeight por las dudas.
+    var probe=document.createElement('div');
+    probe.style.cssText='position:fixed;top:0;left:0;width:0;visibility:hidden;height:env(safe-area-inset-top)';
+    document.body.appendChild(probe);
+    var top=Math.round(probe.getBoundingClientRect().height); probe.remove();
+    var real=(window.screen && window.screen.height ? window.screen.height : window.innerHeight) - top;
+    var h=Math.max(window.innerHeight, real);
+    document.documentElement.style.setProperty('--saH', h + 'px');
   }
   setH();
   // iOS a veces reporta mal el alto en el primer paint y lo corrige un toque después:
@@ -1701,9 +1710,10 @@ window.addEventListener("appinstalled", () => {
   function rd(){
     var nav=document.querySelector('.bottomnav');
     var nb=nav?Math.round(nav.getBoundingClientRect().bottom):'?';
+    var saH=getComputedStyle(document.documentElement).getPropertyValue('--saH').trim();
     d.textContent='sa='+(sa?'1':'0')+' innerH='+Math.round(window.innerHeight)+
                   ' screenH='+Math.round(window.screen.height)+
-                  ' bodyH='+Math.round(document.body.getBoundingClientRect().height)+
+                  ' saH='+saH+' bodyH='+Math.round(document.body.getBoundingClientRect().height)+
                   ' navBottom='+nb;
   }
   rd(); setInterval(rd,1000);
