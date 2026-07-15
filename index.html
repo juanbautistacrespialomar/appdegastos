@@ -31,7 +31,11 @@
   :root[data-theme="light"] .s,
   :root[data-theme="light"] .panel,
   :root[data-theme="light"] .item { box-shadow:0 1px 3px rgba(15,23,32,.06); }
-  html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overflow-x:hidden; }
+  /* overscroll-behavior:none mata el rebote elástico del DOCUMENTO. Hace falta porque .bottomnav-inner
+     y #fab son hijos del body (no de .wrap): al arrastrar arriba de ellos, el navegador no encuentra
+     scroller y cae al documento → iOS mueve todo el viewport. Va en html Y body porque la propagación
+     al viewport funciona como overflow: se toma del body solo si html está en auto. */
+  html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overflow-x:hidden; overscroll-behavior:none; }
   /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
      puede hacer su auto-scroll caótico de la página — el mismo motivo por el que el modal anda bien. */
   body { height:100dvh; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; position:relative; }
