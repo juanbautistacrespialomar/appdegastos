@@ -159,6 +159,7 @@
   @media(min-width:600px){ .modal-bg{ align-items:center; } .modal{ border-radius:16px; } }
   .toast{ position:fixed; left:50%; bottom:calc(94px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(16px); max-width:88%; text-align:center; background:var(--sky); color:#04202B; padding:11px 18px; border-radius:999px; font-size:14px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:80; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+  .toast.err{ background:var(--red); color:#fff; }
   #lockScreen{ position:fixed; inset:0; background:var(--bg); z-index:300; display:none; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px; text-align:center; }
   #lockScreen.open{ display:flex; }
   .pindots{ display:flex; gap:14px; height:14px; }
@@ -396,7 +397,23 @@ function MOV_SEED() { return []; }
 const CKEY="misGastosApp.config.v1", MKEY="misGastosApp.mov.v1";
 const mem={};
 function load(k,def){ try{const r=localStorage.getItem(k); return r?JSON.parse(r):def;}catch(e){ return (k in mem)?mem[k]:def; } }
-function save(k,v){ mem[k]=v; try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+let _saveFailAvisado = 0;   // timestamp del último aviso de fallo, para no spamear
+function save(k,v){
+  mem[k]=v;                                     // siempre en memoria: la sesión sigue andando aunque falle el disco
+  try{
+    localStorage.setItem(k,JSON.stringify(v));
+    return true;                                // persistió en el dispositivo
+  }catch(e){
+    // localStorage falló (cuota llena, modo privado de Safari, o storage bloqueado).
+    // El dato quedó SOLO en memoria y se pierde al cerrar la app -> hay que avisar.
+    // Anti-spam: save() se llama en ráfaga, así que avisamos como mucho 1 vez cada 8s.
+    if(Date.now()-_saveFailAvisado > 8000){
+      _saveFailAvisado = Date.now();
+      try{ toast("No pude guardar los cambios en el dispositivo. Liberá espacio o salí del modo privado.", ()=>{ const t=$("toast"); if(t) t.classList.remove("show"); }, "error"); }catch(_){}
+    }
+    return false;                               // NO persistió
+  }
+}
 
 function parseMonto(v){ v=String(v).trim(); if(!v) return NaN; v=v.replace(/\./g,"").replace(",","."); return parseFloat(v); }
 function migrarCat(c){ return c==="Salidas/Asados" ? "Salidas/Comidas" : c; }
@@ -657,9 +674,10 @@ function histLabel(d){ return MC[(+d.split("-")[1])-1]+" '"+d.slice(2,4); }
 // la entrada base siempre los trae, así ves el valor original).
 function histLinea(h, prev){ let s=histLabel(h.d)+": $"+fmtN(h.m); const ext=[]; if(h.n!=null && (!prev || h.n!==prev.n)) ext.push(esc(h.n)); if(h.cat!=null && (!prev || h.cat!==prev.cat)) ext.push(esc(h.cat)); return s+(ext.length?" ("+ext.join(" · ")+")":""); }
 
-function toast(msg, onClick){
+function toast(msg, onClick, tipo){
   let t=$("toast");
   if(!t){ t=document.createElement("div"); t.id="toast"; t.className="toast"; document.body.appendChild(t); }
+  t.className = "toast" + (tipo==="error" ? " err" : "");
   t.textContent=msg;
   t.onclick = onClick || null;
   t.style.cursor = onClick ? "pointer" : "default";
