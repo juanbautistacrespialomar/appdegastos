@@ -136,6 +136,15 @@
   .del { background:none; border:none; color:#475569; font-size:17px; cursor:pointer; padding:4px; display:inline-flex; align-items:center; justify-content:center; }
   .del:active { color:var(--red); }
   .empty { text-align:center; color:var(--muted); padding:24px 10px; font-size:14px; line-height:1.5; }
+  .emptyx { text-align:center; padding:34px 20px; }
+  .emptyx-ic { width:58px; height:58px; border-radius:50%; background:var(--card2); display:flex; align-items:center; justify-content:center; margin:0 auto 15px; }
+  .emptyx-ic .ic { width:26px; height:26px; color:var(--sky); }
+  .emptyx-t { color:var(--txt); font-size:16px; font-weight:600; margin-bottom:6px; }
+  .emptyx-s { color:var(--muted); font-size:13px; line-height:1.5; max-width:280px; margin:0 auto; }
+  .emptyx .btn-add { width:auto; display:inline-flex; margin-top:18px; }
+  /* feedback de press: los botones de acción se hunden un toque al tocarlos */
+  .btn-add, #fab, .mesbtn, .pinkey { transition:transform .1s ease, background .12s, opacity .2s; }
+  .btn-add:active, #fab:active, .mesbtn:active, .pinkey:active, .btn-ghost:active { transform:scale(.95); }
   .grouphdr { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin:14px 2px 6px; display:flex; justify-content:space-between; }
   .pin { color:var(--amber); } .pct { color:var(--muted); }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -697,6 +706,19 @@ function numADisplay(n){
 /* Achica la fuente de las cajas del resumen cuando el importe es largo, para que no
    se desborde del cuadrado (ej. saldos negativos de 7+ cifras). */
 function fsCaja(txt){ const L=String(txt).length; return L>=13?"10px":L>=11?"12px":L>=9?"13px":"15px"; }
+// --- microinteracciones ---
+function haptic(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms||12); }catch(e){} }
+function countUp(el, from, to, dur){
+  const start=performance.now(), ease=t=>1-Math.pow(1-t,3);
+  cancelAnimationFrame(el._raf||0);
+  (function frame(now){ const p=Math.min((now-start)/(dur||650),1); el.textContent=fmt(Math.round(from+(to-from)*ease(p))); if(p<1) el._raf=requestAnimationFrame(frame); })(performance.now());
+}
+let _lastSaldoShown=null;   // último saldo mostrado, para animar el count-up solo cuando cambia
+// empty state "con cariño": ícono + título + subtítulo + CTA opcional
+function emptyState(iconKey, titulo, sub, cta){
+  const btn = cta ? `<button class="btn btn-add" onclick="${cta.action}">${ic('plus')} ${cta.label}</button>` : '';
+  return `<div class="emptyx"><div class="emptyx-ic">${ic(iconKey)}</div><div class="emptyx-t">${titulo}</div><div class="emptyx-s">${sub}</div>${btn}</div>`;
+}
 const hoy = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const nombreMes = ym => { const [y,m]=ym.split("-"); return MESES[+m-1]+" "+y; };
 function ymAdd(ym,k){ const [y,m]=ym.split("-").map(Number); const d=new Date(y,m-1+k,1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
@@ -903,7 +925,7 @@ function computeMes(ym){
 }
 
 function donut(data,total){
-  if(!total) return `<div class="empty">Sin gastos este mes.</div>`;
+  if(!total) return emptyState('dollar', 'Todavía no cargaste gastos', 'Cuando cargues tu primer gasto del mes, tu resumen por categoría aparece acá.', {label:'Cargar mi primer gasto', action:'abrirModalAlta()'});
   const r=70,cx=100,cy=100,C=2*Math.PI*r; let acc=0,segs="";
   data.forEach(d=>{ const len=(d.value/total)*C;
     segs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${COLORES[d.name]||'#6B8194'}" stroke-width="26" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-acc}"></circle>`; acc+=len; });
@@ -971,6 +993,21 @@ function render(){
          <div class="clrow"><span class="clname"><span class="cldot" style="background:var(--sky)"></span>Variables</span><span class="clval">${fmt(c.tV)} · ${rp(pV)}%</span></div>
        </div>
      </div>` : ``;
+
+  // microinteracciones: count-up del saldo y barra de composición, sólo cuando el saldo cambió
+  const _animar = (_lastSaldoShown===null) || (_lastSaldoShown!==c.saldo);
+  if(_animar){
+    const hvalEl=$("cards").querySelector(".hval");
+    if(hvalEl) countUp(hvalEl, _lastSaldoShown===null?0:_lastSaldoShown, c.saldo, 650);
+    if(tot){
+      const segs=[...$("split").querySelectorAll(".cseg")];
+      const ws=segs.map(s=>s.style.width);
+      segs.forEach(s=>s.style.width="0%");
+      void $("split").offsetWidth;
+      requestAnimationFrame(()=>segs.forEach((s,i)=>s.style.width=ws[i]));
+    }
+  }
+  _lastSaldoShown = c.saldo;
 
   if(vista==="resumen") renderResumen(c);
   else if(vista==="mov") renderMov(c);
@@ -1043,7 +1080,7 @@ function renderMov(c){
     });
     const suma=res.reduce((s,x)=>s+x.monto,0);
     h+=`<div class="grouphdr"><span>${res.length} resultado${res.length===1?"":"s"} · ${nombreMes(mesActivo)}</span><span>${fmt(suma)}</span></div>`;
-    h+= res.length? res.map(it=>{ const meta = it.tipo==="Variable" ? (it.categoria+" · "+it.medio+" · "+it.fecha.slice(8,10)+"/"+it.fecha.slice(5,7)) : (it.categoria+" · "+it.tipo); return fila(it.nombre, meta, it.monto, it.color, it.id, it.id); }).join("") : `<div class="empty">Sin resultados con esos filtros en este mes.</div>`;
+    h+= res.length? res.map(it=>{ const meta = it.tipo==="Variable" ? (it.categoria+" · "+it.medio+" · "+it.fecha.slice(8,10)+"/"+it.fecha.slice(5,7)) : (it.categoria+" · "+it.tipo); return fila(it.nombre, meta, it.monto, it.color, it.id, it.id); }).join("") : emptyState('search','Sin resultados','Probá con otra descripción o cambiá los filtros de este mes.');
     $("content").innerHTML=h; return;
   }
   if(c.ingresos.length){ h+=`<div class="grouphdr"><span>Ingresos</span><span>${fmt(c.ingreso)}</span></div>`;
@@ -1064,9 +1101,9 @@ function renderMov(c){
   }
 
   h+=`<div class="grouphdr"><span>Cuotas</span><span>${fmt(c.tC)}</span></div>`;
-  h+= c.cuotas.length? grupoCuotas(c.cuotas) : `<div class="empty">Sin cuotas este mes.</div>`;
+  h+= c.cuotas.length? grupoCuotas(c.cuotas) : emptyState('card','Sin cuotas este mes','Las compras en cuotas activas este mes van a aparecer acá.');
   h+=`<div class="grouphdr"><span>Variables</span><span>${fmt(c.tV)}</span><span style="text-transform:none;letter-spacing:0">tocá para ver</span></div>`;
-  h+= c.variables.length? c.variables.map(v=>fila(v.descripcion||v.categoria, v.categoria+" · "+v.medio+" · "+v.fecha.slice(8,10)+"/"+v.fecha.slice(5,7), v.monto, COLORES[v.categoria]||"#6B8194", v.id, v.id)).join("") : `<div class="empty">Tocá el botón "+" para cargar un gasto.</div>`;
+  h+= c.variables.length? c.variables.map(v=>fila(v.descripcion||v.categoria, v.categoria+" · "+v.medio+" · "+v.fecha.slice(8,10)+"/"+v.fecha.slice(5,7), v.monto, COLORES[v.categoria]||"#6B8194", v.id, v.id)).join("") : emptyState('dollar','Todavía no cargaste gastos','Cuando anotes tu primer gasto, lo vas a ver acá con su categoría, medio de pago y fecha.', {label:'Cargar mi primer gasto', action:'abrirModalAlta()'});
   $("content").innerHTML=h;
 }
 
@@ -1506,6 +1543,8 @@ $("f-cat").onchange=()=>{ fCat=$("f-cat").value; render(); };
 $("f-medio").onchange=()=>{ fMedio=$("f-medio").value; render(); };
 $("f-clear").onclick=()=>{ fTexto=""; fCat="__todas"; fMedio="__todos"; $("f-texto").value=""; $("f-cat").value="__todas"; $("f-medio").value="__todos"; render(); };
 $("fab").onclick=abrirModalAlta;
+// haptic sutil al tocar botones de acción (sin tener que engancharlo en cada handler)
+document.addEventListener("click", (e)=>{ if(e.target.closest && e.target.closest(".btn-add, #fab, .mesbtn, .pinkey")) haptic(12); }, true);
 $("m-close").onclick=cerrarModal;
 $("modal").onclick=e=>{ if(e.target.id==="modal") cerrarModal(); };
 $("d-close").onclick=cerrarModalDet;
