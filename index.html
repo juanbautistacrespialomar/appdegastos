@@ -157,13 +157,13 @@
   /* Mientras hay un modal abierto, el fondo no scrollea (se mueve el cartel, no la pantalla de atrás) */
   html:has(.modal-bg.open), body:has(.modal-bg.open) { overflow:hidden; }
   @media(min-width:600px){ .modal-bg{ align-items:center; } .modal{ border-radius:16px; } }
-  .toast{ position:fixed; left:50%; bottom:calc(94px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(16px); max-width:88%; text-align:center; background:var(--green); color:#fff; padding:11px 18px; border-radius:999px; font-size:14px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:80; }
+  .toast{ position:fixed; left:50%; bottom:calc(94px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(16px); max-width:88%; text-align:center; background:var(--sky); color:#04202B; padding:11px 18px; border-radius:999px; font-size:14px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:80; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
   #lockScreen{ position:fixed; inset:0; background:var(--bg); z-index:300; display:none; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px; text-align:center; }
   #lockScreen.open{ display:flex; }
   .pindots{ display:flex; gap:14px; height:14px; }
   .pindot{ width:14px; height:14px; border-radius:50%; border:2px solid #475569; box-sizing:border-box; transition:background .12s, border-color .12s; }
-  .pindot.filled{ background:var(--amber); border-color:var(--amber); }
+  .pindot.filled{ background:var(--sky); border-color:var(--sky); }
   .pinpad{ display:grid; grid-template-columns:repeat(3,68px); gap:14px; justify-content:center; }
   .pinkey{ width:68px; height:68px; border-radius:50%; background:var(--card2); color:var(--txt); font-size:24px; border:none; font:inherit; }
   .pinkey:active{ background:var(--hover); }
@@ -921,8 +921,7 @@ function renderResumen(c){
     <span>${fmt(x.value)} <span class="pct">(${total?((x.value/total)*100).toFixed(0):0}%)</span></span></div>`).join("");
   $("content").innerHTML =
     `<div class="panel"><p class="ptitle">Gastos por categoría</p>${donut(cats,total)}<div style="margin-top:8px">${leyenda||''}</div></div>
-     <div class="panel"><p class="ptitle">${ic('trend')} Saldo proyectado (6 meses)</p>${proyeccion()}
-        <p style="font-size:11px;color:var(--muted);margin:6px 0 0">Verde = saldo positivo · Rojo = negativo.</p></div>`;
+     <div class="panel"><p class="ptitle">${ic('trend')} Saldo proyectado</p>${proyeccion()}</div>`;
 }
 
 function fila(nombre,meta,monto,color,delId,editId){
@@ -1099,19 +1098,19 @@ function renderAjustes(){
        <div class="row between fold-aj" data-fold="ing" style="cursor:pointer">
          <p class="ptitle" style="margin:0">${ic('dollar')} Ingresos <span style="color:var(--muted);font-weight:400">· ${ingVisibles}</span></p>
          ${chev(ajFold.ing)}</div>
-       <button class="btn btn-ghost" id="add-ing" style="margin:10px 0 ${ajFold.ing?'0':'12px'}">${ic('plus')} Agregar ingreso</button>
+       <button class="btn btn-ghost" id="add-ing" style="margin:10px 0 ${ajFold.ing?'0':'12px'}">${ic('plus')} Agregar</button>
        ${ajFold.ing?'':ingRows}</div>
      <div class="panel">
        <div class="row between fold-aj" data-fold="fijos" style="cursor:pointer">
          <p class="ptitle" style="margin:0">${ic('pin')} Gastos fijos <span style="color:var(--muted);font-weight:400">· ${fijosVisibles}</span></p>
          ${chev(ajFold.fijos)}</div>
-       <button class="btn btn-ghost" id="add-fijo" style="margin:10px 0 ${ajFold.fijos?'0':'12px'}">${ic('plus')} Agregar fijo</button>
+       <button class="btn btn-ghost" id="add-fijo" style="margin:10px 0 ${ajFold.fijos?'0':'12px'}">${ic('plus')} Agregar</button>
        ${ajFold.fijos?'':(fijosRows||'<div class="empty" style="padding:8px">Todavía no cargaste fijos.</div>')}</div>
      <div class="panel">
        <div class="row between fold-aj" data-fold="cuotas" style="cursor:pointer">
          <p class="ptitle" style="margin:0">${ic('card')} Cuotas <span style="color:var(--muted);font-weight:400">· ${config.cuotas.length}</span></p>
          ${chev(ajFold.cuotas)}</div>
-       <button class="btn btn-ghost" id="add-cuota" style="margin:10px 0 ${ajFold.cuotas?'0':'12px'}">${ic('plus')} Agregar cuota</button>
+       <button class="btn btn-ghost" id="add-cuota" style="margin:10px 0 ${ajFold.cuotas?'0':'12px'}">${ic('plus')} Agregar</button>
        ${ajFold.cuotas?'':(cuotaRows||'<div class="empty" style="padding:8px">Todavía no cargaste cuotas.</div>')}</div>
      <div class="panel"><p class="ptitle">${ic('bell')} Recordatorios</p>
        <label class="chk"><input type="checkbox" id="pushToggle" ${pushPrefs.enabled?"checked":""}> Activar recordatorios diarios</label>
