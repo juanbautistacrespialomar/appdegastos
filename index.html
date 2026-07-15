@@ -68,6 +68,33 @@
   .s { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
   .s .l { font-size:10px; color:var(--muted); display:flex; align-items:center; gap:4px; }
   .s .v { font-size:13px; font-weight:600; margin-top:2px; }
+  /* --- Saldo héroe + submétricas + barra de composición (rediseño home) --- */
+  .hero { text-align:center; margin-bottom:18px; }
+  .hero .hlab { color:var(--muted); font-size:12px; margin-bottom:2px; }
+  .hero .hval { font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-1px; line-height:1.1; }
+  .hero .hsub { color:var(--muted); font-size:12px; margin-top:4px; }
+  .submetrics { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+  .sm { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
+  .sm .smlab { color:var(--muted); font-size:11px; margin-bottom:2px; }
+  .sm .smval { font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .comp { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:14px; }
+  .comp .ctitle { color:var(--muted); font-size:12px; margin-bottom:11px; }
+  .comp .cbar { display:flex; height:12px; border-radius:6px; overflow:hidden; background:var(--card2); margin-bottom:14px; }
+  .comp .cseg { height:100%; transition:width .5s ease; }
+  .comp .clegend { display:flex; flex-direction:column; gap:7px; }
+  .comp .clrow { display:flex; justify-content:space-between; align-items:center; font-size:12px; }
+  .comp .clname { color:var(--txt); display:flex; align-items:center; gap:7px; }
+  .comp .cldot { width:8px; height:8px; border-radius:50%; display:inline-block; flex:0 0 auto; }
+  .comp .clval { color:#8598A8; font-variant-numeric:tabular-nums; }
+  /* selector rápido de mes */
+  #monthLabel { cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .mesgrid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:12px; }
+  .mesbtn { background:var(--card2); border:1px solid var(--border); border-radius:10px; padding:12px 0; color:var(--txt); font:inherit; font-size:14px; cursor:pointer; text-align:center; }
+  .mesbtn.sel { background:var(--sky); color:#04202B; border-color:var(--sky); font-weight:600; }
+  .mesbtn:active { background:var(--hover); }
+  .anionav { display:flex; align-items:center; justify-content:center; gap:20px; margin-top:6px; }
+  .anionav button { background:none; border:none; color:var(--txt); font-size:22px; cursor:pointer; padding:4px 12px; }
+  .anionav .aniolab { font-weight:600; font-size:16px; min-width:64px; text-align:center; }
   /* Barra flotante estilo isla: el wrapper (.bottomnav) es transparente y crea el aire alrededor;
      la píldora redondeada con sombra es .bottomnav-inner. Sigue en flujo (flex:0 0 auto) para no
      reabrir el tema del teclado. El padding-bottom = safe-area + aire despega la píldora del borde
@@ -338,6 +365,14 @@
       <button class="btn btn-ghost" id="invite-no">Ahora no</button>
       <button class="btn btn-add" id="invite-si"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Dale, activá</button>
     </div>
+  </div>
+</div>
+
+<div id="modalMes" class="modal-bg">
+  <div class="modal">
+    <div class="row between" style="margin-bottom:4px"><strong>Ir a un mes</strong><button id="mes-x" class="del" aria-label="Cerrar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="anionav"><button id="mes-prevA" aria-label="Año anterior">‹</button><span class="aniolab" id="mes-anio"></span><button id="mes-nextA" aria-label="Año siguiente">›</button></div>
+    <div class="mesgrid" id="mes-grid"></div>
   </div>
 </div>
 
@@ -893,7 +928,7 @@ function proyeccion(){
 }
 
 function render(){
-  $("monthLabel").textContent = nombreMes(mesActivo);
+  $("monthLabel").innerHTML = nombreMes(mesActivo) + ` <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.45"><polyline points="6 9 12 15 18 9"/></svg>`;
   $("eyeBtn").classList.toggle("oculto", oculto);
   $("filtros").style.display = vista==="mov" ? "" : "none";
   $("fab").style.display = (vista==="resumen"||vista==="mov") ? "" : "none";
@@ -903,14 +938,39 @@ function render(){
   if(_idx>=0) $("tabInd").style.transform="translateX("+(_idx*100)+"%)";
   const c = computeMes(mesActivo);
 
+  const fsHero=t=>{ const L=String(t).length; return L>=13?"26px":L>=11?"30px":L>=9?"34px":"38px"; };
+  const kAbrev=v=>{ const a=Math.abs(v); return a>=1e6?(a/1e6).toFixed(1).replace('.',',')+'M':Math.round(a/1e3)+'k'; };
+  const mesTxt = MESES[+mesActivo.split("-")[1]-1].toLowerCase();
+  const hsub = c.saldo<0 ? `Gastaste $${kAbrev(c.saldo)} más de lo que entró`
+             : c.saldo>0 ? `Te sobró $${kAbrev(c.saldo)} este mes`
+             : `Cerraste justo este mes`;
   $("cards").innerHTML =
-    `<div class="c"><div class="lab">Ingresos</div><div class="val" style="color:var(--green);font-size:${fsCaja(fmt(c.ingreso))}">${fmt(c.ingreso)}</div></div>
-     <div class="c"><div class="lab">Gastos</div><div class="val" style="font-size:${fsCaja(fmt(c.gasto))}">${fmt(c.gasto)}</div></div>
-     <div class="c"><div class="lab">Saldo</div><div class="val ${c.saldo>=0?'saldo-pos':'saldo-neg'}" style="font-size:${fsCaja(fmt(c.saldo))}">${fmt(c.saldo)}</div></div>`;
-  $("split").innerHTML =
-    `<div class="s"><div class="l"><span class="dot" style="background:var(--amber);width:8px;height:8px"></span>Fijos</div><div class="v">${fmt(c.tF)}</div></div>
-     <div class="s"><div class="l"><span class="dot" style="background:var(--violet);width:8px;height:8px"></span>Cuotas</div><div class="v">${fmt(c.tC)}</div></div>
-     <div class="s"><div class="l"><span class="dot" style="background:var(--sky);width:8px;height:8px"></span>Variables</div><div class="v">${fmt(c.tV)}</div></div>`;
+    `<div class="hero">
+       <div class="hlab">Saldo de ${mesTxt}</div>
+       <div class="hval ${c.saldo>=0?'saldo-pos':'saldo-neg'}" style="font-size:${fsHero(fmt(c.saldo))}">${fmt(c.saldo)}</div>
+       <div class="hsub">${hsub}</div>
+     </div>
+     <div class="submetrics">
+       <div class="sm"><div class="smlab">Ingresos</div><div class="smval" style="color:var(--green)">${fmt(c.ingreso)}</div></div>
+       <div class="sm"><div class="smlab">Gastos</div><div class="smval">${fmt(c.gasto)}</div></div>
+     </div>`;
+  const tot = c.tF + c.tC + c.tV;
+  const pF = tot? c.tF/tot*100 : 0, pC = tot? c.tC/tot*100 : 0, pV = tot? c.tV/tot*100 : 0;
+  const rp = n => Math.round(n);
+  $("split").innerHTML = tot ?
+    `<div class="comp">
+       <div class="ctitle">Composición del gasto</div>
+       <div class="cbar">
+         <div class="cseg" style="width:${pF}%;background:var(--amber)"></div>
+         <div class="cseg" style="width:${pC}%;background:var(--violet)"></div>
+         <div class="cseg" style="width:${pV}%;background:var(--sky)"></div>
+       </div>
+       <div class="clegend">
+         <div class="clrow"><span class="clname"><span class="cldot" style="background:var(--amber)"></span>Fijos</span><span class="clval">${fmt(c.tF)} · ${rp(pF)}%</span></div>
+         <div class="clrow"><span class="clname"><span class="cldot" style="background:var(--violet)"></span>Cuotas</span><span class="clval">${fmt(c.tC)} · ${rp(pC)}%</span></div>
+         <div class="clrow"><span class="clname"><span class="cldot" style="background:var(--sky)"></span>Variables</span><span class="clval">${fmt(c.tV)} · ${rp(pV)}%</span></div>
+       </div>
+     </div>` : ``;
 
   if(vista==="resumen") renderResumen(c);
   else if(vista==="mov") renderMov(c);
@@ -1397,6 +1457,30 @@ function exportar(){
 
 $("prevMonth").onclick=()=>{ mesActivo=ymAdd(mesActivo,-1); render(); };
 $("nextMonth").onclick=()=>{ mesActivo=ymAdd(mesActivo,1); render(); };
+
+// --- Selector rápido de mes: tap en la etiqueta abre grilla de meses con navegación de año ---
+let selAnioMes;
+function pintarSelectorMes(){
+  $("mes-anio").textContent = selAnioMes;
+  const [ay, am] = mesActivo.split("-").map(Number);
+  $("mes-grid").innerHTML = MC.map((m,i)=>{
+    const sel = (selAnioMes===ay && (i+1)===am) ? " sel" : "";
+    return `<button class="mesbtn${sel}" data-m="${i+1}">${m}</button>`;
+  }).join("");
+  $("mes-grid").querySelectorAll(".mesbtn").forEach(b=>{
+    b.onclick=()=>{
+      mesActivo = selAnioMes + "-" + String(+b.dataset.m).padStart(2,"0");
+      $("modalMes").classList.remove("open");
+      render();
+    };
+  });
+}
+function abrirSelectorMes(){ selAnioMes = +mesActivo.split("-")[0]; pintarSelectorMes(); $("modalMes").classList.add("open"); }
+$("monthLabel").onclick = abrirSelectorMes;
+$("mes-prevA").onclick = ()=>{ selAnioMes--; pintarSelectorMes(); };
+$("mes-nextA").onclick = ()=>{ selAnioMes++; pintarSelectorMes(); };
+$("mes-x").onclick = ()=>$("modalMes").classList.remove("open");
+$("modalMes").onclick = (e)=>{ if(e.target===$("modalMes")) $("modalMes").classList.remove("open"); };
 $("eyeBtn").onclick=()=>{ oculto=!oculto; render(); };
 /* Tema claro/oscuro: SOLO cambia colores (variables CSS). No toca datos: la preferencia
    se guarda en su propia clave "mg_theme", aparte de tus gastos. No llama a render(). */
