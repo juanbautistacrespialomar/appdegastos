@@ -31,7 +31,7 @@
   :root[data-theme="light"] .s,
   :root[data-theme="light"] .panel,
   :root[data-theme="light"] .item { box-shadow:0 1px 3px rgba(15,23,32,.06); }
-  html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overflow-x:hidden; }
   /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
      puede hacer su auto-scroll caótico de la página — el mismo motivo por el que el modal anda bien. */
   body { height:100dvh; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; position:relative; }
@@ -49,7 +49,7 @@
   /* .wrap ES el scroller de la app: altura = área realmente visible (--vv-h, que se achica cuando
      sube el teclado). Con el body bloqueado, el scroll de todo el contenido pasa por acá, dentro de
      un alto controlado. Por eso scrollIntoView puede centrar bien un campo sin que iOS lo pise. */
-  .wrap { width:100%; max-width:600px; box-sizing:border-box; flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:calc(16px + env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom) + 92px + var(--kb,0px)); }
+  .wrap { width:100%; max-width:600px; box-sizing:border-box; flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; padding:calc(16px + env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom) + 92px + var(--kb,0px)); }
   .row { display:flex; align-items:center; }
   .between { justify-content:space-between; }
   h1 { font-size:20px; margin:0; }
@@ -60,11 +60,11 @@
   .monthbar { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:8px 10px; margin-bottom:14px; }
   .monthbar .nav { background:none; border:none; color:var(--txt); font-size:22px; padding:4px 14px; cursor:pointer; line-height:1; }
   .monthbar .label { font-weight:600; }
-  .cards { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px; text-align:center; }
+  .cards { display:block; }
   .c { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:11px; }
   .c .lab { font-size:11px; color:var(--muted); margin-bottom:4px; }
   .c .val { font-size:15px; font-weight:700; }
-  .split { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:14px; text-align:center; }
+  .split { display:block; }
   .s { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
   .s .l { font-size:10px; color:var(--muted); display:flex; align-items:center; gap:4px; }
   .s .v { font-size:13px; font-weight:600; margin-top:2px; }
