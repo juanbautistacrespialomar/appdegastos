@@ -193,10 +193,21 @@
      (padding-bottom:--kb sobre un inset:0 que ya no reflejaba lo que se ve en iOS). */
   .modal-bg { position:fixed; left:0; right:0; top:var(--vv-top,0px); height:var(--vv-h,100dvh); background:rgba(8,12,16,.72); display:none; align-items:flex-end; justify-content:center; z-index:60; overflow:hidden; overscroll-behavior:contain; transition:top .12s ease, height .12s ease; }
   .modal-bg.open { display:flex; }
-  .modal { background:var(--card); border:1px solid var(--border); border-radius:16px 16px 0 0; padding:16px; width:100%; max-width:600px; max-height:calc(100% - 16px); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+  /* padding-bottom = 16px + safe-area: sin esto, el último renglón del sheet queda DEBAJO del
+     home indicator del iPhone (parece cortado). Aplica a todos los bottom sheets. */
+  .modal { background:var(--card); border:1px solid var(--border); border-radius:16px 16px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); width:100%; max-width:600px; max-height:calc(100% - 16px); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
   /* Mientras hay un modal abierto, el fondo no scrollea (se mueve el cartel, no la pantalla de atrás) */
   html:has(.modal-bg.open), body:has(.modal-bg.open) { overflow:hidden; }
   @media(min-width:600px){ .modal-bg{ align-items:center; } .modal{ border-radius:16px; } }
+  /* ===== Variante .alert: NO es un bottom sheet =====
+     Los sheets son para tareas que iniciás vos (agregar gasto, ver detalle): van abajo, al alcance
+     del pulgar. Los .alert son interrupciones que no pediste (versión nueva, invitación a las notis):
+     cortas, de decisión sí/no. Van centrados, como el UIAlertController de iOS.
+     Bonus: pegado abajo, el botón de acción caía JUSTO donde vive el FAB (+) → mis-tap asegurado.
+     Centrado eso desaparece. El padding va en el fondo (no en la tarjeta) para que el alert respire
+     igual arriba y abajo, y se le saca el safe-area porque ya no toca el borde inferior. */
+  .modal-bg.alert { align-items:center; padding:24px 16px calc(24px + env(safe-area-inset-bottom)); }
+  .modal-bg.alert .modal { border-radius:16px; max-width:400px; max-height:100%; padding-bottom:16px; }
   .toast{ position:fixed; left:50%; bottom:calc(94px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(16px); max-width:88%; text-align:center; background:var(--sky); color:#04202B; padding:11px 18px; border-radius:999px; font-size:14px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:80; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
   .toast.err{ background:var(--red); color:#fff; }
@@ -330,7 +341,7 @@
 </div>
 
 <!-- Aviso de versión nueva (pedido 1) -->
-<div id="modalUpd" class="modal-bg">
+<div id="modalUpd" class="modal-bg alert">
   <div class="modal">
     <div class="row between" style="margin-bottom:10px"><strong style="display:flex;align-items:center;gap:7px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--sky)"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z"/></svg> Nueva versión disponible</strong></div>
     <p id="upd-msg" style="color:var(--txt);font-size:14px;line-height:1.5;margin:0 0 16px"></p>
@@ -366,7 +377,7 @@
 </div>
 
 <!-- Invitación (única vez por dispositivo) a activar recordatorios -->
-<div id="modalInvitePush" class="modal-bg">
+<div id="modalInvitePush" class="modal-bg alert">
   <div class="modal" style="text-align:center">
     <svg class="ic ic-md" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--sky);margin-bottom:6px"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
     <strong style="font-size:16px;display:block;margin-bottom:8px">No te olvides de anotar</strong>
@@ -424,7 +435,7 @@ function ic(k, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24
 /* Chevron de colapso: colapsado = apunta a la derecha; abierto = rota 90deg hacia abajo. */
 function chev(colapsado){ return '<svg class="fold-ic'+(colapsado?'':' open')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'; }
 
-const APP_VERSION = "6.27";
+const APP_VERSION = "6.28";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
