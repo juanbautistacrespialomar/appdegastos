@@ -55,7 +55,7 @@
   h1 { font-size:20px; margin:0; }
   .header { gap:8px; margin-bottom:16px; }
   .btn { border:none; border-radius:10px; font:inherit; cursor:pointer; color:var(--txt); }
-  .btn-ghost { background:var(--card2); padding:9px 12px; font-size:14px; display:inline-flex; align-items:center; gap:6px; }
+  .btn-ghost { background:var(--card2); padding:9px 12px; font-size:14px; display:inline-flex; align-items:center; gap:7px; }
   .btn-ghost:active { background:var(--hover); }
   .monthbar { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:8px 10px; margin-bottom:14px; }
   .monthbar .nav { background:none; border:none; color:var(--txt); font-size:22px; padding:4px 14px; cursor:pointer; line-height:1; }
@@ -79,11 +79,17 @@
   body.kb-open #fab { transform:translateY(220%); opacity:0; pointer-events:none; }
   body.kb-open .wrap { padding-bottom:55vh; }
   .bottomnav-inner { max-width:440px; margin:0 auto; display:flex; position:relative; pointer-events:auto; background:var(--nav-glass); -webkit-backdrop-filter:blur(22px) saturate(1.5); backdrop-filter:blur(22px) saturate(1.5); border:1px solid var(--border); border-radius:26px; box-shadow:0 4px 16px rgba(0,0,0,.22); padding:6px 8px; }
-  .tab { flex:1; position:relative; display:flex; align-items:center; justify-content:center; padding:11px 0; background:none; border:none; cursor:pointer; color:var(--muted); transition:color .25s; }
-  .tab span { display:none; }
-  .tab svg { width:25px; height:25px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; position:relative; z-index:1; }
-  .tab.active { color:var(--sky); }
-  .tab.active::before { content:""; position:absolute; top:50%; left:50%; width:48px; height:36px; transform:translate(-50%,-50%); background:rgba(51,196,232,.15); border-radius:13px; }
+  /* Nav "opcion B": las pestanas inactivas tienen ancho FIJO (no flex:1) para que no se muevan
+     cuando la activa se estira. Solo la activa toma el sobrante con flex:1 1 auto. */
+  .tab { position:relative; display:flex; align-items:center; justify-content:center; padding:11px 0; background:none; border:none; cursor:pointer; color:var(--muted); flex:0 0 auto; width:58px; transition:flex-grow .3s ease, width .3s ease, color .25s; }
+  /* display no es animable: el label vive siempre en el DOM y se colapsa con max-width, que si
+     interpola. El 100px es un techo que nunca se alcanza (hay nowrap), solo le da al navegador
+     un valor concreto entre el cual animar (con auto no puede). */
+  .tab span { display:block; font-size:11px; font-weight:600; white-space:nowrap; position:relative; z-index:1; max-width:0; opacity:0; overflow:hidden; transition:max-width .3s ease, opacity .22s ease, margin-left .3s ease; }
+  .tab svg { width:24px; height:24px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; position:relative; z-index:1; }
+  .tab.active { color:var(--sky); flex:1 1 auto; width:auto; }
+  .tab.active span { max-width:100px; opacity:1; margin-left:7px; }
+  .tab.active::before { content:""; position:absolute; top:50%; left:50%; width:100%; height:100%; transform:translate(-50%,-50%); background:rgba(51,196,232,.15); border-radius:17px; }
   .tabind { display:none; }
   @keyframes tabpop { 0%{transform:scale(1)} 40%{transform:scale(1.28)} 100%{transform:scale(1)} }
   @keyframes viewin { from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none} }
@@ -100,7 +106,7 @@
   .sub { margin-left:14px; }
   .fgroup, .fgroup-c, .var-row { cursor:pointer; }
   .var-row:active { border-color:#475569; }
-  .del { background:none; border:none; color:#475569; font-size:17px; cursor:pointer; padding:4px; }
+  .del { background:none; border:none; color:#475569; font-size:17px; cursor:pointer; padding:4px; display:inline-flex; align-items:center; justify-content:center; }
   .del:active { color:var(--red); }
   .empty { text-align:center; color:var(--muted); padding:24px 10px; font-size:14px; line-height:1.5; }
   .grouphdr { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin:14px 2px 6px; display:flex; justify-content:space-between; }
@@ -123,7 +129,7 @@
   /* Respiro para scrollIntoView: al centrar/acercar un campo, que quede separado del teclado
      y del borde de arriba, no pegado. */
   input, select, textarea { scroll-margin-top:100px; scroll-margin-bottom:100px; }
-  .btn-add { background:var(--sky); color:#04202B; padding:11px; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .btn-add { background:var(--sky); color:#04202B; padding:11px; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; gap:7px; }
   .btn-add:active { filter:brightness(.92); }
   .crow { display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--card2); border-radius:10px; padding:8px; margin-bottom:8px; }
   .crow > div { min-width:0; }
@@ -138,7 +144,8 @@
   .saldo-pos { color:var(--green); } .saldo-neg { color:var(--red); }
   text { font-family:system-ui,sans-serif; }
   .danger { background:#3f1d1d; color:#fca5a5; }
-  #fab { position:absolute; right:18px; bottom:calc(90px + env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; background:var(--sky); color:#04202B; font-size:30px; line-height:54px; text-align:center; border:none; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; z-index:51; transition:transform .2s ease, opacity .2s ease; }
+  #fab { position:absolute; right:18px; bottom:calc(90px + env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; background:var(--sky); color:#04202B; border:none; box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; z-index:51; display:flex; align-items:center; justify-content:center; transition:transform .2s ease, opacity .2s ease; }
+  #fab .ic { width:26px; height:26px; stroke-width:2.5; }
   #fab:active { background:#1E9CBD; }
   /* El overlay se ancla al ÁREA REALMENTE VISIBLE (medida con visualViewport en JS): top al
      borde de arriba visible y height al alto visible. Así el bottom-sheet (align-items:flex-end)
@@ -163,6 +170,24 @@
   .pinkey.ghost{ background:none; color:var(--muted); font-size:14px; }
   .lock-err{ color:var(--red); font-size:13px; min-height:18px; }
   .lock-sub{ color:var(--muted); font-size:13px; margin-top:-8px; }
+  /* ===== Sistema de iconos =====
+     Mismo estilo que el #eyeBtn original: stroke, sin relleno, 24x24, puntas redondeadas.
+     currentColor es la clave: el icono hereda el color del boton que lo contiene, asi el mismo
+     trash sale gris en .del y rojo en .btn-ghost.danger, y se adapta solo al tema claro. */
+  .ic { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:0 0 auto; }
+  .ic-lg { width:38px; height:38px; stroke-width:1.6; }
+  .ic-md { width:32px; height:32px; stroke-width:1.7; }
+  /* Chevron unico que rota, en vez de cambiar el glifo entre dos caracteres distintos. */
+  .fold-ic { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; flex:0 0 auto; color:var(--muted); transition:transform .2s ease; }
+  .fold-ic.open { transform:rotate(90deg); }
+  @media (prefers-reduced-motion: reduce){ .fold-ic { transition:none; } }
+  /* El placeholder es un atributo: no admite HTML. La lupa va como SVG absoluto y el input
+     le hace lugar con padding-left. */
+  .searchwrap { position:relative; }
+  .searchwrap .ic { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; z-index:1; }
+  .searchwrap input { padding-left:36px; }
+  .ptitle { display:flex; align-items:center; gap:7px; }
+  .ptitle .ic { color:var(--muted); }
   #eyeBtn { display:inline-flex; align-items:center; justify-content:center; }
   #eyeBtn .eye-ic { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   #eyeBtn .eye-slash { display:none; }
@@ -179,19 +204,19 @@
 <body>
 <div class="statusbar-bg"></div>
 <div id="lockScreen">
-  <div style="font-size:40px">🔒</div>
+  <svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--muted)"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
   <div id="lock-title" style="font-weight:600;font-size:16px">Ingresá tu PIN</div>
   <div class="lock-sub" id="lock-sub" style="display:none"></div>
   <div class="pindots" id="lock-dots"></div>
   <div class="lock-err" id="lock-err"></div>
   <div class="pinpad" id="lock-pad"></div>
-  <button class="btn btn-ghost" id="lock-bio" style="display:none">🆔 Usar Face ID / Touch ID</button>
+  <button class="btn btn-ghost" id="lock-bio" style="display:none"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10a2 2 0 0 1 2 2c0 3-.4 5.2-1 6.8"/><path d="M8.5 12a3.5 3.5 0 0 1 7 0c0 3.6-.6 6.2-1.3 8.2"/><path d="M5 12a7 7 0 0 1 14 0c0 4.2-1 7.2-1.6 8.8"/><path d="M3.6 8.2A9.5 9.5 0 0 1 20.4 8.2"/></svg> Usar Face ID / Touch ID</button>
 </div>
 <div class="wrap">
   <div class="row between header">
     <div class="row" style="gap:8px"><h1>Mis Gastos</h1></div>
     <div class="row" style="gap:8px">
-      <button class="btn btn-ghost" id="installBtn" style="display:none" title="Instalar app">⬇ Instalar</button>
+      <button class="btn btn-ghost" id="installBtn" style="display:none" title="Instalar app"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Instalar</button>
       <button class="btn btn-ghost" id="eyeBtn" title="Ocultar/mostrar importes" aria-label="Ocultar o mostrar importes"><svg class="eye-ic" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><line class="eye-slash" x1="3" y1="3" x2="21" y2="21"/></svg></button>
       <button class="switch" id="themeBtn" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro u oscuro" role="switch" aria-checked="false"><span class="knob"><svg class="ic-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg><svg class="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.2" y1="4.2" x2="6" y2="6"/><line x1="18" y1="18" x2="19.8" y2="19.8"/><line x1="4.2" y1="19.8" x2="6" y2="18"/><line x1="18" y1="6" x2="19.8" y2="4.2"/></svg></span></button>
     </div>
@@ -208,7 +233,8 @@
 
   <div id="filtros" style="display:none">
     <div class="grid" style="margin-bottom:14px">
-      <input class="full" type="text" id="f-texto" placeholder="🔍 Buscar (ej: nafta)">
+      <div class="full searchwrap"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="full" type="text" id="f-texto" placeholder="Buscar (ej: nafta)"></div>
       <select id="f-cat"></select>
       <select id="f-medio"></select>
       <button class="btn btn-ghost full" id="f-clear">Limpiar filtros</button>
@@ -222,18 +248,18 @@
 <nav class="bottomnav">
   <div class="bottomnav-inner" id="tabs">
     <button class="tab active" data-v="resumen"><svg viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg><span>Resumen</span></button>
-    <button class="tab" data-v="mov"><svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span>Movim.</span></button>
+    <button class="tab" data-v="mov"><svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span>Movimientos</span></button>
     <button class="tab" data-v="cuotas"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><span>Cuotas</span></button>
     <button class="tab" data-v="ajustes"><svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="10" y1="8" x2="14" y2="8"/><line x1="18" y1="16" x2="22" y2="16"/></svg><span>Ajustes</span></button>
     <div class="tabind" id="tabInd"></div>
   </div>
 </nav>
 
-<button id="fab" title="Cargar gasto variable">＋</button>
+<button id="fab" title="Cargar gasto variable" aria-label="Cargar gasto variable"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
 
 <div id="modal" class="modal-bg">
   <div class="modal">
-    <div class="row between" style="margin-bottom:10px"><strong id="m-title">Nuevo gasto variable</strong><button id="m-close" class="del" style="font-size:20px">✕</button></div>
+    <div class="row between" style="margin-bottom:10px"><strong id="m-title">Nuevo gasto variable</strong><button id="m-close" class="del" aria-label="Cerrar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="grid">
       <input class="full js-money" type="text" inputmode="decimal" id="q-monto" placeholder="Monto ($)  ej: 1234,50">
       <select id="q-cat"></select>
@@ -246,18 +272,18 @@
         <input type="text" id="q-desc" placeholder="Descripción — escribí y elegí de la lista" autocomplete="off">
         <div class="combo-list" id="q-desc-list"></div>
       </div>
-      <button class="btn btn-add full" id="q-add">＋ Agregar</button>
+      <button class="btn btn-add full" id="q-add"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar</button>
     </div>
   </div>
 </div>
 
 <div id="modalDet" class="modal-bg">
   <div class="modal">
-    <div class="row between" style="margin-bottom:10px"><strong>Detalle del gasto</strong><button id="d-close" class="del" style="font-size:20px">✕</button></div>
+    <div class="row between" style="margin-bottom:10px"><strong>Detalle del gasto</strong><button id="d-close" class="del" aria-label="Cerrar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div id="d-body"></div>
     <div class="grid" style="margin-top:14px">
-      <button class="btn btn-ghost danger" id="d-del">🗑 Borrar</button>
-      <button class="btn btn-add" id="d-edit">✏️ Editar</button>
+      <button class="btn btn-ghost danger" id="d-del" style="justify-content:center"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Borrar</button>
+      <button class="btn btn-add" id="d-edit"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
     </div>
   </div>
 </div>
@@ -265,7 +291,7 @@
 <!-- Aviso de versión nueva (pedido 1) -->
 <div id="modalUpd" class="modal-bg">
   <div class="modal">
-    <div class="row between" style="margin-bottom:10px"><strong>🎉 Nueva versión disponible</strong></div>
+    <div class="row between" style="margin-bottom:10px"><strong style="display:flex;align-items:center;gap:7px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--sky)"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z"/></svg> Nueva versión disponible</strong></div>
     <p id="upd-msg" style="color:var(--txt);font-size:14px;line-height:1.5;margin:0 0 16px"></p>
     <div class="grid">
       <button class="btn btn-ghost" id="upd-later">Más tarde</button>
@@ -278,7 +304,7 @@
 <!-- Confirmación genérica reutilizable (pedido 6) -->
 <div id="modalConfirm" class="modal-bg">
   <div class="modal">
-    <div class="row between" style="margin-bottom:10px"><strong id="cf-title">Confirmar</strong><button id="cf-x" class="del" style="font-size:20px">✕</button></div>
+    <div class="row between" style="margin-bottom:10px"><strong id="cf-title">Confirmar</strong><button id="cf-x" class="del" aria-label="Cerrar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <p id="cf-msg" style="color:var(--txt);font-size:14px;line-height:1.5;margin:0 0 16px"></p>
     <div class="grid">
       <button class="btn btn-ghost" id="cf-cancel">Cancelar</button>
@@ -290,7 +316,7 @@
 <!-- Modal para crear / cambiar / verificar el PIN de bloqueo -->
 <div id="modalPin" class="modal-bg">
   <div class="modal" style="text-align:center">
-    <div class="row between" style="margin-bottom:6px"><strong id="pin-title">PIN</strong><button id="pin-x" class="del" style="font-size:20px">✕</button></div>
+    <div class="row between" style="margin-bottom:6px"><strong id="pin-title">PIN</strong><button id="pin-x" class="del" aria-label="Cerrar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <p class="lock-sub" id="pin-sub" style="margin:0 0 10px"></p>
     <div class="pindots" id="pin-dots" style="justify-content:center;margin:0 auto 8px"></div>
     <div class="lock-err" id="pin-err"></div>
@@ -301,7 +327,7 @@
 <!-- Invitación (única vez por dispositivo) a activar recordatorios -->
 <div id="modalInvitePush" class="modal-bg">
   <div class="modal" style="text-align:center">
-    <div style="font-size:34px;margin-bottom:6px">🔔</div>
+    <svg class="ic ic-md" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--sky);margin-bottom:6px"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
     <strong style="font-size:16px;display:block;margin-bottom:8px">No te olvides de anotar</strong>
     <p style="color:var(--txt);font-size:14px;line-height:1.5;margin:0 0 6px">
       Activá las notis y te aviso si te colgás o si la tarjeta empezó a transpirar. Un par por semana, nada más.
@@ -309,14 +335,47 @@
     <p style="color:#6B8194;font-size:12px;margin:0 0 16px">Cero spam. Palabra de contador.</p>
     <div class="grid">
       <button class="btn btn-ghost" id="invite-no">Ahora no</button>
-      <button class="btn btn-add" id="invite-si">🔔 Dale, activá</button>
+      <button class="btn btn-add" id="invite-si"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Dale, activá</button>
     </div>
   </div>
 </div>
 
 <script>
 "use strict";
-const APP_VERSION = "6.26";
+/* ===================== ICONOS =====================
+   Un unico lugar donde vive cada path. ic("trash") devuelve el <svg> listo.
+   Estilo calcado del #eyeBtn original (Feather): viewBox 24x24, stroke, sin fill.
+   El color NO se define aca: sale de currentColor del contenedor.            */
+const ICONS = {
+  lock:   '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  finger: '<path d="M12 10a2 2 0 0 1 2 2c0 3-.4 5.2-1 6.8"/><path d="M8.5 12a3.5 3.5 0 0 1 7 0c0 3.6-.6 6.2-1.3 8.2"/><path d="M5 12a7 7 0 0 1 14 0c0 4.2-1 7.2-1.6 8.8"/><path d="M3.6 8.2A9.5 9.5 0 0 1 20.4 8.2"/>',
+  down:   '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  up:     '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
+  search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  plus:   '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  x:      '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  trash:  '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
+  pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  gift:   '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z"/>',
+  bell:   '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  card:   '<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
+  bksp:   '<path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/>',
+  trend:  '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  save:   '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+  dollar: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  pin:    '<line x1="12" y1="17" x2="12" y2="22"/><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z"/>',
+  db:     '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
+  shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  reset:  '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>',
+  check:  '<polyline points="20 6 9 17 4 12"/>',
+  chev:   '<polyline points="9 18 15 12 9 6"/>'
+};
+/* cls extra opcional: ic("lock","ic-lg"). aria-hidden porque el label de texto ya esta al lado. */
+function ic(k, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICONS[k]+'</svg>'; }
+/* Chevron de colapso: colapsado = apunta a la derecha; abierto = rota 90deg hacia abajo. */
+function chev(colapsado){ return '<svg class="fold-ic'+(colapsado?'':' open')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'; }
+
+const APP_VERSION = "6.27";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
@@ -326,7 +385,10 @@ const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto"
 const MC = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
 function ymNow(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
-function tarjetaLabel(f){ return "💳 " + (f==="MercadoPago"?"Mercado Pago":f); }
+// Devuelve SOLO el nombre limpio de la tarjeta. Antes prefijaba "💳 " y la linea de renderCuotas
+// tenia que hacer .replace("💳 ","") para recuperar el dato: el emoji estaba haciendo de separador
+// en la logica. Ahora el icono lo pone quien renderiza (ic("card")) y el dato viaja limpio.
+function tarjetaLabel(f){ return (f==="MercadoPago"?"Mercado Pago":f); }
 
 function SEED() { return { v:3, ingresos:[{n:"Sueldo", hist:[{d:ymNow(), m:0}]}], fijos:[], cuotas:[] }; }
 function MOV_SEED() { return []; }
@@ -409,7 +471,7 @@ async function autenticarBiometria(){
 function pinPadHTML(){
   return ["1","2","3","4","5","6","7","8","9","","0","del"].map(k=>{
     if(k==="") return `<div></div>`;
-    if(k==="del") return `<button type="button" class="pinkey ghost" data-pinkey="del">⌫</button>`;
+    if(k==="del") return `<button type="button" class="pinkey ghost" data-pinkey="del" aria-label="Borrar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg></button>`;
     return `<button type="button" class="pinkey" data-pinkey="${k}">${k}</button>`;
   }).join("");
 }
@@ -760,7 +822,7 @@ function setVig(obj, desde, monto, nombre, cat){
   persistC(); render();
 }
 // Lee la fila de un ingreso (nombre, monto, mes elegido y el tilde "solo este mes") y lo guarda.
-// La usan tanto el botón 💾 Guardar como el checkbox. onceFlag: si viene booleano, lo fuerza
+// La usan tanto el botón Guardar como el checkbox. onceFlag: si viene booleano, lo fuerza
 // (lo manda el checkbox); si no, se respeta lo que esté tildado en la fila.
 function guardarIngreso(i, onceFlag){
   const root=$("content"), g=config.ingresos[i]; if(!g) return;
@@ -859,7 +921,7 @@ function renderResumen(c){
     <span>${fmt(x.value)} <span class="pct">(${total?((x.value/total)*100).toFixed(0):0}%)</span></span></div>`).join("");
   $("content").innerHTML =
     `<div class="panel"><p class="ptitle">Gastos por categoría</p>${donut(cats,total)}<div style="margin-top:8px">${leyenda||''}</div></div>
-     <div class="panel"><p class="ptitle">📈 Saldo proyectado (6 meses)</p>${proyeccion()}
+     <div class="panel"><p class="ptitle">${ic('trend')} Saldo proyectado (6 meses)</p>${proyeccion()}
         <p style="font-size:11px;color:var(--muted);margin:6px 0 0">Verde = saldo positivo · Rojo = negativo.</p></div>`;
 }
 
@@ -868,7 +930,7 @@ function fila(nombre,meta,monto,color,delId,editId){
     <span class="bar" style="background:${color}"></span>
     <div style="min-width:0"><div class="desc">${esc(nombre)}</div>${meta?`<div class="meta">${esc(meta)}</div>`:''}</div></div>
     <div style="display:flex;align-items:center;gap:6px"><span class="amt">${fmt(monto)}</span>
-    ${delId?`<button class="del del-mov" data-id="${delId}">🗑</button>`:''}</div></div>`;
+    ${delId?`<button class="del del-mov" data-id="${delId}" aria-label="Borrar">${ic('trash')}</button>`:''}</div></div>`;
 }
 function grupoCuotas(lista){
   const gc={}; lista.forEach(q=>{ (gc[q.fuente]=gc[q.fuente]||[]).push(q); });
@@ -878,7 +940,7 @@ function grupoCuotas(lista){
     const sub=items.reduce((s,x)=>s+x.monto,0); const col=colCuotas[f]!==true;
     h+=`<div class="item fgroup-c" data-card="${esc(f)}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
           <span class="bar" style="background:#9D7BFF"></span>
-          <div class="desc">${col?'▸':'▾'} ${esc(tarjetaLabel(f))} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
+          <div class="desc">${chev(col)} ${ic('card')} ${esc(tarjetaLabel(f))} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
         <span class="amt">${fmt(sub)}</span></div>`;
     if(!col) h+= items.map(q=>`<div class="sub">`+fila(q.nombre, "", q.monto, "#9D7BFF")+`</div>`).join("");
   });
@@ -891,7 +953,7 @@ function renderMov(c){
     const q=fTexto.trim().toLowerCase();
     let items=[];
     c.fijos.forEach(f=>items.push({nombre:f.nombre, categoria:f.cat, medio:"", monto:f.monto, tipo:"Fijo", color:COLORES[f.cat]||"#FFA31A"}));
-    c.cuotas.forEach(x=>items.push({nombre:x.nombre, categoria:"Cuotas", medio:"", monto:x.monto, tipo:tarjetaLabel(x.fuente).replace("💳 ",""), color:"#9D7BFF"}));
+    c.cuotas.forEach(x=>items.push({nombre:x.nombre, categoria:"Cuotas", medio:"", monto:x.monto, tipo:tarjetaLabel(x.fuente), color:"#9D7BFF"}));
     c.variables.forEach(v=>items.push({nombre:v.descripcion||v.categoria, categoria:v.categoria, medio:v.medio, monto:v.monto, tipo:"Variable", color:COLORES[v.categoria]||"#6B8194", id:v.id, fecha:v.fecha}));
     const res=items.filter(it=>{
       if(fCat!=="__todas" && it.categoria!==fCat) return false;
@@ -915,7 +977,7 @@ function renderMov(c){
       const items=grupos[cat]; const sub=items.reduce((s,x)=>s+x.monto,0); const col = colapsado[cat]!==false;
       h+=`<div class="item fgroup" data-cat="${esc(cat)}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
             <span class="bar" style="background:${COLORES[cat]||'#6B8194'}"></span>
-            <div class="desc">${col?'▸':'▾'} ${esc(cat)} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
+            <div class="desc">${chev(col)} ${esc(cat)} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
           <span class="amt">${fmt(sub)}</span></div>`;
       if(!col) h+= items.map(f=>`<div class="sub">`+fila(f.nombre, "Fijo mensual", f.monto, COLORES[f.cat]||'#FFA31A')+`</div>`).join("");
     });
@@ -940,7 +1002,7 @@ function renderCuotas(){
     const col = colCuotas[fuente]!==true;
     let h=`<div class="item fgroup-c" data-card="${esc(fuente)}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
         <span class="bar" style="background:#9D7BFF"></span>
-        <div class="desc">${col?'▸':'▾'} ${etiqueta} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
+        <div class="desc">${chev(col)} ${etiqueta} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
       <span class="amt">${fmt(sub)}</span></div>`;
     if(!col) h+= items.map(x=>`<div class="sub">`+fila(x.q.n, "Cuota "+x.actual+` · quedan ${x.rest} ($${fmtN(x.q.m)}/mes)`, x.total, "#9D7BFF")+`</div>`).join("");
     return h;
@@ -951,7 +1013,7 @@ function renderCuotas(){
   const fuentes = TARJETAS.concat(
     [...new Set(config.cuotas.map(q=>q.f))].filter(f=>f && !TARJETAS.includes(f))
   );
-  const cuerpo = fuentes.map(f=>bloque(f, esc(tarjetaLabel(f)))).join("");
+  const cuerpo = fuentes.map(f=>bloque(f, ic('card')+' '+esc(tarjetaLabel(f)))).join("");
   $("content").innerHTML =
     `<div class="panel" style="padding:12px 14px"><span style="color:var(--muted);font-size:13px">Total comprometido en cuotas (desde ${nombreMes(mesActivo)})</span>
        <div style="font-size:22px;font-weight:700;color:var(--violet);margin-top:4px">${fmt(totalRest)}</div></div>`
@@ -998,8 +1060,8 @@ function renderAjustes(){
       <div class="full"><label class="chk"><input type="checkbox" data-ionce="${i}" ${once?"checked":""}> Solo este mes (no se repite — ej: aguinaldo, factura única)</label></div>
       <div class="full"><label>${lblMes}</label>${desdeSel('i',i,mesActivo)}</div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
-        <button class="btn btn-add mini" data-saveing="${i}" style="flex:1">💾 Guardar</button>
-        <button class="del" data-t="deling" data-i="${i}">🗑</button></div>
+        <button class="btn btn-add mini" data-saveing="${i}" style="flex:1">${ic('save')} Guardar</button>
+        <button class="del" data-t="deling" data-i="${i}" aria-label="Borrar">${ic('trash')}</button></div>
       ${histTxt}</div>`;
   }).join("");
   // Cantidad de ingresos que efectivamente se muestran en este mes (recurrentes + los
@@ -1016,8 +1078,8 @@ function renderAjustes(){
       <div><label>$ por mes (en ${histLabel(mesActivo)})</label><input class="mini js-money${oculto?' masked':''}" type="text" inputmode="decimal" data-fmonto="${i}" value="${numADisplay(montoActual)}"></div>
       <div class="full"><label>Aplicar cambio desde</label>${desdeSel('f',i,mesActivo)}</div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
-        <button class="btn btn-add mini" data-savefijo="${i}" style="flex:1">💾 Guardar</button>
-        <button class="del" data-t="delfijo" data-i="${i}">🗑</button></div>
+        <button class="btn btn-add mini" data-savefijo="${i}" style="flex:1">${ic('save')} Guardar</button>
+        <button class="del" data-t="delfijo" data-i="${i}" aria-label="Borrar">${ic('trash')}</button></div>
       ${histTxt}</div>`;
   }).join("");
   const cuotaRows = config.cuotas.map((q,i)=>`<div class="crow">
@@ -1029,32 +1091,32 @@ function renderAjustes(){
       <div><label>Total de la compra ($)</label><input class="mini js-money${oculto?' masked':''}" type="text" inputmode="decimal" data-ctotal="${i}" value="${numADisplay(q.tot||'')}"></div>
       <div class="full"><label>$ por cuota (calculado)</label><input class="mini" type="text" value="${fmtN(q.m||0)}" readonly tabindex="-1" style="opacity:.55;background:var(--card);cursor:not-allowed"></div>
       <div class="full" style="display:flex;gap:6px;align-items:center">
-        <button class="btn btn-add mini" data-savecuota="${i}" style="flex:1">💾 Guardar</button>
-        <button class="del" data-t="delcuota" data-i="${i}">🗑</button></div></div>`).join("");
+        <button class="btn btn-add mini" data-savecuota="${i}" style="flex:1">${ic('save')} Guardar</button>
+        <button class="del" data-t="delcuota" data-i="${i}" aria-label="Borrar">${ic('trash')}</button></div></div>`).join("");
 
   $("content").innerHTML =
     `<div class="panel">
        <div class="row between fold-aj" data-fold="ing" style="cursor:pointer">
-         <p class="ptitle" style="margin:0">💵 Ingresos <span style="color:var(--muted);font-weight:400">· ${ingVisibles}</span></p>
-         <span style="color:var(--muted);font-size:14px">${ajFold.ing?'▸':'▾'}</span></div>
-       <button class="btn btn-ghost" id="add-ing" style="margin:10px 0 ${ajFold.ing?'0':'12px'}">＋ Agregar ingreso</button>
+         <p class="ptitle" style="margin:0">${ic('dollar')} Ingresos <span style="color:var(--muted);font-weight:400">· ${ingVisibles}</span></p>
+         ${chev(ajFold.ing)}</div>
+       <button class="btn btn-ghost" id="add-ing" style="margin:10px 0 ${ajFold.ing?'0':'12px'}">${ic('plus')} Agregar ingreso</button>
        ${ajFold.ing?'':ingRows}</div>
      <div class="panel">
        <div class="row between fold-aj" data-fold="fijos" style="cursor:pointer">
-         <p class="ptitle" style="margin:0">📌 Gastos fijos <span style="color:var(--muted);font-weight:400">· ${fijosVisibles}</span></p>
-         <span style="color:var(--muted);font-size:14px">${ajFold.fijos?'▸':'▾'}</span></div>
-       <button class="btn btn-ghost" id="add-fijo" style="margin:10px 0 ${ajFold.fijos?'0':'12px'}">＋ Agregar fijo</button>
+         <p class="ptitle" style="margin:0">${ic('pin')} Gastos fijos <span style="color:var(--muted);font-weight:400">· ${fijosVisibles}</span></p>
+         ${chev(ajFold.fijos)}</div>
+       <button class="btn btn-ghost" id="add-fijo" style="margin:10px 0 ${ajFold.fijos?'0':'12px'}">${ic('plus')} Agregar fijo</button>
        ${ajFold.fijos?'':(fijosRows||'<div class="empty" style="padding:8px">Todavía no cargaste fijos.</div>')}</div>
      <div class="panel">
        <div class="row between fold-aj" data-fold="cuotas" style="cursor:pointer">
-         <p class="ptitle" style="margin:0">💳 Cuotas <span style="color:var(--muted);font-weight:400">· ${config.cuotas.length}</span></p>
-         <span style="color:var(--muted);font-size:14px">${ajFold.cuotas?'▸':'▾'}</span></div>
-       <button class="btn btn-ghost" id="add-cuota" style="margin:10px 0 ${ajFold.cuotas?'0':'12px'}">＋ Agregar cuota</button>
+         <p class="ptitle" style="margin:0">${ic('card')} Cuotas <span style="color:var(--muted);font-weight:400">· ${config.cuotas.length}</span></p>
+         ${chev(ajFold.cuotas)}</div>
+       <button class="btn btn-ghost" id="add-cuota" style="margin:10px 0 ${ajFold.cuotas?'0':'12px'}">${ic('plus')} Agregar cuota</button>
        ${ajFold.cuotas?'':(cuotaRows||'<div class="empty" style="padding:8px">Todavía no cargaste cuotas.</div>')}</div>
-     <div class="panel"><p class="ptitle">🔔 Recordatorios</p>
+     <div class="panel"><p class="ptitle">${ic('bell')} Recordatorios</p>
        <label class="chk"><input type="checkbox" id="pushToggle" ${pushPrefs.enabled?"checked":""}> Activar recordatorios diarios</label>
        <p style="font-size:11px;color:var(--muted);margin:8px 0 0">Te avisa si hace días que no cargás nada o si algo llama la atención en tus gastos del mes. Solo se sincronizan totales (nunca el detalle de tus movimientos).</p></div>
-     <div class="panel"><p class="ptitle">🔒 Seguridad</p>
+     <div class="panel"><p class="ptitle">${ic('shield')} Seguridad</p>
        <label class="chk" style="margin-bottom:${lock.enabled?'10px':'0'}"><input type="checkbox" id="lockToggle" ${lock.enabled?"checked":""}> Bloquear la app con PIN al abrirla</label>
        ${lock.enabled?`
        <div id="lockBioRow" style="display:none;margin:6px 0 10px">
@@ -1062,16 +1124,16 @@ function renderAjustes(){
        </div>
        <button class="btn btn-ghost" id="lockChangeBtn">Cambiar PIN</button>`:""}
        <p style="font-size:11px;color:var(--muted);margin:8px 0 0">El bloqueo protege el acceso desde este dispositivo. No cifra el archivo de backup que descargás.</p></div>
-     <div class="panel"><p class="ptitle">⚙️ Datos y backup</p>
-       <button class="btn btn-ghost" id="backup" style="margin-bottom:8px">⬇️ Descargar backup (todo)</button>
-       <button class="btn btn-ghost" id="importBtn" style="margin-bottom:8px">⬆️ Restaurar desde backup</button>
+     <div class="panel"><p class="ptitle">${ic('db')} Datos y backup</p>
+       <button class="btn btn-ghost" id="backup" style="margin-bottom:8px">${ic('down')} Descargar backup (todo)</button>
+       <button class="btn btn-ghost" id="importBtn" style="margin-bottom:8px">${ic('up')} Restaurar desde backup</button>
        <input type="file" id="importFile" accept="application/json,.json" style="display:none">
-       <button class="btn btn-ghost danger" id="reset">↺ Borrar todo y empezar de cero</button>
+       <button class="btn btn-ghost danger" id="reset">${ic('reset')} Borrar todo y empezar de cero</button>
        <p style="font-size:11px;color:var(--muted);margin:8px 0 0">El backup guarda TODO en un archivo. Hacelo cada tanto, por las dudas.</p></div>`;
 
   // Cuotas: cada campo guarda en memoria al toque, pero NO re-renderiza (así no te
   // salta el foco mientras editás). El recálculo de "$ por cuota" y el refresco visual
-  // se hacen al tocar el botón 💾 Guardar de esa cuota.
+  // se hacen al tocar el botón Guardar de esa cuota.
   $("content").querySelectorAll("[data-t='cuota']").forEach(el=>{
     el.onchange = ()=>{ const i=+el.dataset.i,k=el.dataset.k;
       let val = (el.type==="number"? (parseFloat(el.value)||0) : el.value);
@@ -1092,7 +1154,7 @@ function renderAjustes(){
   });
   // Combo de tarjeta/forma de pago en cada cuota: al elegir o escribir, guarda q.f SIN
   // re-renderizar (para no perder el foco ni colapsar la fila). El refresco visual del
-  // resumen se hace cuando tocás 💾 Guardar o cambiás de pestaña.
+  // resumen se hace cuando tocás Guardar o cambiás de pestaña.
   $("content").querySelectorAll("input[data-t='cuota'][data-k='f']").forEach(inp=>{
     const i=+inp.dataset.i;
     setupCombo(inp, formasDePago, val=>{ if(config.cuotas[i]){ config.cuotas[i].f = val.trim(); persistC(); } });
@@ -1256,7 +1318,7 @@ function renderAjustes(){
 function abrirModalAlta(){
   editId=null; $("m-title").textContent="Nuevo gasto variable";
   $("q-monto").value=""; $("q-desc").value=""; $("q-cat").selectedIndex=0; $("q-medio").value="Efectivo"; $("q-fecha").value=hoy();
-  $("q-add").textContent="＋ Agregar";
+  $("q-add").innerHTML=ic('plus')+" Agregar";   // textContent escaparia el SVG
   poblarSugerencias(); cerrarDescList();
   $("modal").classList.add("open"); $("q-monto").focus();
 }
@@ -1268,7 +1330,7 @@ function abrirModalEdit(id){
   $("q-medio").value=v.medio||"";
   $("q-fecha").value=v.fecha;
   $("q-desc").value=v.descripcion||"";
-  $("q-add").textContent="✓ Guardar cambios";
+  $("q-add").innerHTML=ic('check')+" Guardar cambios";
   poblarSugerencias(); cerrarDescList();
   $("modal").classList.add("open"); $("q-monto").focus();
 }
