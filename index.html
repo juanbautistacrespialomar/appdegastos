@@ -959,7 +959,7 @@ function proyeccion(){
     const y=a.saldo>=0?zero-h:zero; const col=a.saldo>=0?(a.actual?'#00E676':'#0FA85A'):'#FF5C5C';
     const ly=a.saldo>=0?y-4:y+h+11;
     bars+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h,1)}" rx="3" fill="${col}"></rect>
-      <text x="${x+bw/2}" y="${ly}" text-anchor="middle" fill="#8598A8" font-size="10">${kf(a.saldo)}</text>
+      <text x="${x+bw/2}" y="${ly}" text-anchor="middle" fill="#8598A8" font-size="10">${oculto ? '•••' : kf(a.saldo)}</text>
       <text x="${x+bw/2}" y="${H-4}" text-anchor="middle" fill="#6B8194" font-size="10">${a.mes}</text>`; });
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="180"><line x1="${pad-6}" y1="${zero}" x2="${W-pad+6}" y2="${zero}" stroke="#2A3A47" stroke-width="1"/>${bars}</svg>`;
 }
@@ -978,7 +978,8 @@ function render(){
   const fsHero=t=>{ const L=String(t).length; return L>=13?"26px":L>=11?"30px":L>=9?"34px":"38px"; };
   const kAbrev=v=>{ const a=Math.abs(v); return a>=1e6?(a/1e6).toFixed(1).replace('.',',')+'M':Math.round(a/1e3)+'k'; };
   const mesTxt = MESES[+mesActivo.split("-")[1]-1].toLowerCase();
-  const hsub = c.saldo<0 ? `Gastaste $${kAbrev(c.saldo)} más de lo que entró`
+  const hsub = oculto ? "Balance del mes oculto"
+             : c.saldo<0 ? `Gastaste $${kAbrev(c.saldo)} más de lo que entró`
              : c.saldo>0 ? `Te sobró $${kAbrev(c.saldo)} este mes`
              : `Cerraste justo este mes`;
   $("cards").innerHTML =
