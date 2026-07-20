@@ -86,7 +86,30 @@ const CANDIDATAS = [
   { id:"lunes", texto:"¿Cómo venís de plata después del finde? Hacé el balance del daño.",
     cond:(s,ctx)=> ctx.diaSemana === 1 },
   { id:"viernes", texto:"Cierre de semana: la plata del lunes se fue y solo dejó saludos.",
-    cond:(s,ctx)=> ctx.diaSemana === 5 }
+    cond:(s,ctx)=> ctx.diaSemana === 5 },
+
+  // --- Nuevas (mismas condiciones que las de arriba: compiten parejo en el sorteo
+  //     y respetan el tope semanal. Cada una con id propio para la anti-repetición) ---
+  { id:"inactivo7b", texto:"Hace una semana que no aparecés. Ya le puse tu nombre a una silla vacía y le hablo en las cenas.",
+    cond:(s,ctx)=> ctx.dias >= 7 },
+  { id:"inactivo5b", texto:"Cinco días sin aparecer. Ya te velamos, repartimos la herencia y nos peleamos por el auto. Volvé que hay quilombo.",
+    cond:(s,ctx)=> ctx.dias >= 4 && ctx.dias <= 6 },
+  { id:"tarjetaAlta2", texto:"Tu tarjeta se fugó a Uruguay, cambió de nombre y ahora dice que no te conoce.",
+    cond:(s)=> s.gastoEsteMesADiaX > 0 && (s.gastoTarjetaEsteMes / s.gastoEsteMesADiaX) > 0.6 },
+  { id:"tarjetaAlta3", texto:"Tu tarjeta se anotó en el monotributo como 'trabajadora independiente'. Ahora factura ella y vos pagás.",
+    cond:(s)=> s.gastoEsteMesADiaX > 0 && (s.gastoTarjetaEsteMes / s.gastoEsteMesADiaX) > 0.6 },
+  { id:"proyeccion2", texto:"Proyección de fin de mes: para el 28 vas a estar regateando el precio de un choripán como si fuera un 0km.",
+    cond:(s,ctx)=> ctx.diaMes >= 10 && ctx.diaMes <= 22 && s.ingresoEsteMes > 0 && proyectarFinMes(s,ctx) > s.ingresoEsteMes },
+  { id:"proyeccion3", texto:"Proyección de fin de mes: para el 27 vas a estar pagando el café en cuotas y sin interés porque no queda otra.",
+    cond:(s,ctx)=> ctx.diaMes >= 10 && ctx.diaMes <= 22 && s.ingresoEsteMes > 0 && proyectarFinMes(s,ctx) > s.ingresoEsteMes },
+  { id:"saldoNegativo2", texto:"Tu billetera pidió asilo político. Alega persecución económica y condiciones inhumanas.",
+    cond:(s)=> s.ingresoEsteMes > 0 && s.gastoEsteMesADiaX > s.ingresoEsteMes },
+  { id:"saldoNegativo3", texto:"Llamé a tu cuenta bancaria y me atendió un contestador que llora.",
+    cond:(s)=> s.ingresoEsteMes > 0 && s.gastoEsteMesADiaX > s.ingresoEsteMes },
+  { id:"saldoNegativo4", texto:"Tu saldo negativo se presentó a elecciones, ganó por amplia mayoría y ahora gobierna tu cuenta.",
+    cond:(s)=> s.ingresoEsteMes > 0 && s.gastoEsteMesADiaX > s.ingresoEsteMes },
+  { id:"gastoAltoArca", texto:"Gastaste tanto este mes que ARCA te mandó una inspección sorpresa para ver de dónde sacás la guita.",
+    cond:(s)=> s.promedioHistorico > 0 && s.gastoEsteMesADiaX > s.promedioHistorico * 1.3 }
 ];
 
 function diasEntre(fechaYMD, hoy) {
