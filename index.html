@@ -6,6 +6,10 @@
 <title>Mis Gastos</title>
 <meta name="theme-color" content="#080C10">
 <script>try{if(localStorage.getItem("mg_theme")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}</script>
+<!-- Detección de plataforma TEMPRANA (antes del primer paint) para que el CSS no parpadee.
+     Distinguimos iOS de todo lo demás porque el hack de altura (--saH, más abajo) está escrito
+     para un bug puntual de iOS y en Android hace justo lo contrario: rompe el layout. -->
+<script>try{(function(){var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);document.documentElement.classList.add(isIOS?"ios":"no-ios");})();}catch(e){}</script>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://mis-gastos-recordatorios.juanbautistacrespialomar.workers.dev; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; object-src 'none';">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -38,7 +42,11 @@
   html,body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overflow-x:hidden; overscroll-behavior:none; }
   /* El body NO scrollea: el scroll vive en .wrap (ver abajo). Así, con el teclado abierto, iOS no
      puede hacer su auto-scroll caótico de la página — el mismo motivo por el que el modal anda bien. */
-  body { height:100dvh; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; position:relative; }
+  /* height:100vh primero como RED: si el navegador no conoce dvh (Samsung Internet viejo,
+     Chrome < 108), descarta la segunda línea y se queda con vh. Sin esta red, un navegador sin
+     dvh deja al body SIN altura declarada → la .bottomnav (absolute; bottom:0) se ancla al alto
+     del contenido y no al de la pantalla. */
+  body { height:100vh; height:100dvh; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; position:relative; }
   /* Con black-translucent el texto de la barra de estado (hora/batería) lo pinta iOS en BLANCO,
      por encima del contenido. En modo oscuro se lee bien; en modo claro, sobre fondo claro, sería
      ilegible. Solución: una franja fija del alto EXACTO de la isla (env(safe-area-inset-top)),
@@ -50,6 +58,14 @@
      flota. Forzamos el alto real medido por JS (window.innerHeight) para que el body llene toda
      la pantalla y la nav toque el fondo. Fallback 100vh por si el JS no corre. */
   html.sa body { height: var(--saH, 100vh); }
+  /* --- Piso de aire inferior fuera de iOS (Android/Samsung) ---
+     En Android, env(safe-area-inset-bottom) casi siempre vale 0: el viewport ya termina ARRIBA
+     de la barra de gestos, así que no hace falta descontar nada. Pero en edge-to-edge (Android 15 /
+     One UI 7) o si el navegador directamente no reporta el inset, la píldora queda pegada al borde
+     o pisada por la barra del sistema y el dedo no llega. max() garantiza 12px de aire SIEMPRE,
+     sin tocar iOS (que sigue con su env() puro y sus 34px del home indicator). */
+  html.no-ios .bottomnav { padding-bottom: calc(max(env(safe-area-inset-bottom), 12px) + 14px); }
+  html.no-ios #fab { bottom: calc(90px + max(env(safe-area-inset-bottom), 12px)); }
   /* .wrap ES el scroller de la app: altura = área realmente visible (--vv-h, que se achica cuando
      sube el teclado). Con el body bloqueado, el scroll de todo el contenido pasa por acá, dentro de
      un alto controlado. Por eso scrollIntoView puede centrar bien un campo sin que iOS lo pise. */
@@ -435,7 +451,7 @@ function ic(k, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24
 /* Chevron de colapso: colapsado = apunta a la derecha; abierto = rota 90deg hacia abajo. */
 function chev(colapsado){ return '<svg class="fold-ic'+(colapsado?'':' open')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'; }
 
-const APP_VERSION = "6.28";
+const APP_VERSION = "6.29";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
@@ -1914,7 +1930,17 @@ window.addEventListener("appinstalled", () => {
 (function(){
   var sa = (window.navigator.standalone===true) ||
            (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-  if(sa) document.documentElement.classList.add('sa');
+  /* Lo recalculamos acá en vez de leer la clase del <head>: si por lo que sea aquel script no
+     corrió, NO queremos que iOS se quede sin su parche de altura. Cero acoplamiento. */
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  /* ¡OJO! Todo lo que sigue es un parche EXCLUSIVO de iOS instalado. En iOS, innerHeight viene
+     corto y hay que forzar el alto con screen.height. En Android pasa lo contrario: innerHeight
+     es correcto y screen.height incluye la barra de estado + la barra de navegación del sistema.
+     Aplicarlo ahí estiraba el body ~60-140px POR DEBAJO de lo visible y se llevaba la bottomnav
+     fuera de pantalla (y como maxSaH nunca achica, quedaba roto para siempre). Por eso: solo iOS. */
+  if(!(sa && isIOS)) return;
+  document.documentElement.classList.add('sa');
   var maxSaH = 0;
   function setH(){
     // En este iOS innerHeight viene corto (le descuenta la barra de estado) aunque el webview
