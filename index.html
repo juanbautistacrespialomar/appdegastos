@@ -124,7 +124,10 @@
      flotando encima del teclado, la mandamos abajo (fuera de pantalla). El FAB también. */
   body.kb-open .bottomnav { transform:translateY(120%); }
   body.kb-open #fab { transform:translateY(220%); opacity:0; pointer-events:none; }
-  body.kb-open .wrap { padding-bottom:55vh; }
+  /* Con un modal abierto el .wrap esta tapado por el overlay: re-maquetarlo (cambiar su
+     padding de golpe) mientras sube el teclado solo genera reflow y ayuda al rebote.
+     Fuera del modal (ej: campos de Ajustes) el aire de 55vh sigue haciendo falta. */
+  body.kb-open:not(:has(.modal-bg.open)) .wrap { padding-bottom:55vh; }
   .bottomnav-inner { max-width:440px; margin:0 auto; display:flex; position:relative; pointer-events:auto; background:var(--nav-glass); -webkit-backdrop-filter:blur(22px) saturate(1.5); backdrop-filter:blur(22px) saturate(1.5); border:1px solid var(--border); border-radius:26px; box-shadow:0 4px 16px rgba(0,0,0,.22); padding:6px 8px; }
   /* Nav "opcion B": las pestanas inactivas tienen ancho FIJO (no flex:1) para que no se muevan
      cuando la activa se estira. Solo la activa toma el sobrante con flex:1 1 auto. */
@@ -207,7 +210,13 @@
      borde de arriba visible y height al alto visible. Así el bottom-sheet (align-items:flex-end)
      queda pegado justo por encima del teclado, sin el doble descuento que tenía antes
      (padding-bottom:--kb sobre un inset:0 que ya no reflejaba lo que se ve en iOS). */
-  .modal-bg { position:fixed; left:0; right:0; top:var(--vv-top,0px); height:var(--vv-h,100dvh); background:rgba(8,12,16,.72); display:none; align-items:flex-end; justify-content:center; z-index:60; overflow:hidden; overscroll-behavior:contain; transition:top .12s ease, height .12s ease; }
+  .modal-bg { position:fixed; left:0; right:0; top:var(--vv-top,0px); height:var(--vv-h,100dvh); background:rgba(8,12,16,.72); display:none; align-items:flex-end; justify-content:center; z-index:60; overflow:hidden; overscroll-behavior:contain; }
+  /* La transicion de top/height solo en iOS: alla los eventos de visualViewport llegan espaciados
+     y sin transicion el sheet daria saltos secos. En Android llegan frame a frame, asi que la
+     transicion no agrega suavidad: agrega RETRASO. Cada evento arrancaba una transicion nueva de
+     120ms desde donde habia quedado la anterior, y el sheet quedaba persiguiendo al teclado -> se
+     veia como si se pasara y volviera. Sin transicion, en Android va pegado al teclado. */
+  html.ios .modal-bg { transition:top .12s ease, height .12s ease; }
   .modal-bg.open { display:flex; }
   /* padding-bottom = 16px + safe-area: sin esto, el último renglón del sheet queda DEBAJO del
      home indicator del iPhone (parece cortado). Aplica a todos los bottom sheets. */
@@ -451,7 +460,7 @@ function ic(k, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24
 /* Chevron de colapso: colapsado = apunta a la derecha; abierto = rota 90deg hacia abajo. */
 function chev(colapsado){ return '<svg class="fold-ic'+(colapsado?'':' open')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'; }
 
-const APP_VERSION = "6.29";
+const APP_VERSION = "6.30";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
@@ -1464,12 +1473,29 @@ function renderAjustes(){
   }
 }
 
+/* Enfocar un campo recien abierto SIN provocar salto de pantalla.
+   Dos problemas se arreglan aca:
+   1) Timing: si pedimos foco en la misma linea que .add("open"), el navegador calcula "adonde
+      llevar el campo" con el sheet todavia sin maquetar, y despues corrige -> primer salto.
+      El requestAnimationFrame espera un frame: el sheet ya esta pintado en su lugar.
+   2) preventScroll: le dice "enfoca, pero no scrollees por el foco programatico". El scroll que
+      hace el navegador al abrir el teclado sigue funcionando igual; solo matamos el redundante.
+   El try/catch es por navegadores viejos que ignoran el objeto de opciones: ahi cae al focus() de
+   toda la vida y queda como estaba antes. Si algun dia esto molesta, se revierte SOLO esta funcion. */
+function focoSinSalto(el){
+  if(!el) return;
+  requestAnimationFrame(()=>{
+    try{ el.focus({preventScroll:true}); }
+    catch(e){ el.focus(); }
+  });
+}
+
 function abrirModalAlta(){
   editId=null; $("m-title").textContent="Nuevo gasto variable";
   $("q-monto").value=""; $("q-desc").value=""; $("q-cat").selectedIndex=0; $("q-medio").value="Efectivo"; $("q-fecha").value=hoy();
   $("q-add").innerHTML=ic('plus')+" Agregar";   // textContent escaparia el SVG
   poblarSugerencias(); cerrarDescList();
-  $("modal").classList.add("open"); $("q-monto").focus();
+  $("modal").classList.add("open"); focoSinSalto($("q-monto"));
 }
 function abrirModalEdit(id){
   const v=mov.find(x=>x.id===id); if(!v) return;
@@ -1481,7 +1507,7 @@ function abrirModalEdit(id){
   $("q-desc").value=v.descripcion||"";
   $("q-add").innerHTML=ic('check')+" Guardar cambios";
   poblarSugerencias(); cerrarDescList();
-  $("modal").classList.add("open"); $("q-monto").focus();
+  $("modal").classList.add("open"); focoSinSalto($("q-monto"));
 }
 function cerrarModal(){ $("modal").classList.remove("open"); editId=null; cerrarDescList(); }
 
@@ -1702,6 +1728,12 @@ ajustarVV();
    scrollear con la mano, la vista "se volvía para arriba". Ahora, una vez ubicado, te dejamos
    scrollear libre. Al cambiar de campo, el focusin resetea el candado. */
 function pedirCentrado(){
+  /* Android NO necesita esto: al subir el teclado, Chrome achica el visual viewport y YA se
+     encarga de dejar visible el campo enfocado. Nuestro centrado llegaba 180ms despues, encima
+     del que ya habia hecho el navegador, y lo movia de nuevo -> rebote. Ademas block:"center"
+     sube por TODOS los contenedores scrolleables (.modal, .wrap y el documento), asi que movia
+     tambien el fondo. En iOS si hace falta, porque alla el teclado se superpone y no centra nada. */
+  if(document.documentElement.classList.contains("no-ios")) return;
   if(_yaCentre) return;
   clearTimeout(_centrarTimer);
   _centrarTimer = setTimeout(()=>{ if(_campoActivo){ asegurarVisible(_campoActivo); _yaCentre=true; } }, 180);
