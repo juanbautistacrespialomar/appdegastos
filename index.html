@@ -185,9 +185,10 @@
   .combo-opt:hover, .combo-opt:active { background:var(--hover); }
   .combo-empty { padding:11px 12px; font-size:13px; color:var(--muted); }
   input:focus,select:focus { outline:none; border-color:var(--sky); }
-  /* Respiro para scrollIntoView: al centrar/acercar un campo, que quede separado del teclado
-     y del borde de arriba, no pegado. */
-  input, select, textarea { scroll-margin-top:100px; scroll-margin-bottom:100px; }
+  /* Respiro para scrollIntoView. Bajado de 100px a 24px en la 6.31: con block:"center" el margen
+     grande no molestaba, pero con block:"nearest" (que mueve lo minimo) un margen de 100px obliga
+     a scrollear aunque el campo ya se vea. 24px es el aire que queda entre el campo y el teclado. */
+  input, select, textarea { scroll-margin-top:24px; scroll-margin-bottom:24px; }
   .btn-add { background:var(--sky); color:#04202B; padding:11px; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; gap:7px; }
   .btn-add:active { filter:brightness(.92); }
   .crow { display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--card2); border-radius:10px; padding:8px; margin-bottom:8px; }
@@ -460,7 +461,7 @@ function ic(k, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24
 /* Chevron de colapso: colapsado = apunta a la derecha; abierto = rota 90deg hacia abajo. */
 function chev(colapsado){ return '<svg class="fold-ic'+(colapsado?'':' open')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'; }
 
-const APP_VERSION = "6.30";
+const APP_VERSION = "6.31";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
@@ -1474,20 +1475,21 @@ function renderAjustes(){
 }
 
 /* Enfocar un campo recien abierto SIN provocar salto de pantalla.
-   Dos problemas se arreglan aca:
-   1) Timing: si pedimos foco en la misma linea que .add("open"), el navegador calcula "adonde
-      llevar el campo" con el sheet todavia sin maquetar, y despues corrige -> primer salto.
-      El requestAnimationFrame espera un frame: el sheet ya esta pintado en su lugar.
-   2) preventScroll: le dice "enfoca, pero no scrollees por el foco programatico". El scroll que
-      hace el navegador al abrir el teclado sigue funcionando igual; solo matamos el redundante.
-   El try/catch es por navegadores viejos que ignoran el objeto de opciones: ahi cae al focus() de
-   toda la vida y queda como estaba antes. Si algun dia esto molesta, se revierte SOLO esta funcion. */
+   OJO CON EL TIMING (esto se rompio en la 6.30): iOS solo abre el teclado si el focus() ocurre
+   SINCRONICAMENTE dentro del gesto del usuario. En la 6.30 lo metimos en un requestAnimationFrame
+   para que el sheet estuviera maquetado, y perdimos la "activacion de usuario": el sheet abria
+   pero el teclado no subia hasta que tocabas el campo a mano.
+   La solucion es forzar el layout de forma sincronica (leer offsetHeight obliga al navegador a
+   recalcular ahi mismo) y enfocar en el mismo tick. Conseguimos las dos cosas: sheet ya ubicado
+   Y teclado automatico.
+   preventScroll:true le dice "enfoca, pero no scrollees por el foco programatico"; el scroll que
+   hace el navegador al abrir el teclado sigue funcionando igual. El try/catch es para navegadores
+   viejos que ignoran el objeto de opciones: ahi cae al focus() de toda la vida. */
 function focoSinSalto(el){
   if(!el) return;
-  requestAnimationFrame(()=>{
-    try{ el.focus({preventScroll:true}); }
-    catch(e){ el.focus(); }
-  });
+  void el.offsetHeight;                       // fuerza layout AHORA, sin salir del gesto
+  try{ el.focus({preventScroll:true}); }
+  catch(e){ el.focus(); }
 }
 
 function abrirModalAlta(){
@@ -1695,7 +1697,8 @@ document.addEventListener("gesturestart", e=>e.preventDefault(), {passive:false}
    bottom-sheet queda pegado arriba del teclado, sin el doble descuento que antes lo hacía
    escapar por arriba. El contenido que no entra scrollea dentro del propio modal. */
 let _campoActivo=null, _centrarTimer=null, _campoFocuseado=false, _yaCentre=false;
-function ajustarVV(){
+let _vvGrowTimer=null, _vvH=0;
+function escribirVV(){
   const vv = window.visualViewport;
   const h  = vv ? vv.height : window.innerHeight;
   const kb = vv ? Math.max(0, window.innerHeight - vv.height) : 0;
@@ -1708,6 +1711,29 @@ function ajustarVV(){
   // Teclado abierto: escondemos la bottomnav y el FAB (usamos un umbral para no
   // confundir la barra de URL de Safari con el teclado real).
   document.body.classList.toggle("kb-open", _campoFocuseado || kb > 120);
+  _vvH = h;
+}
+/* ANTI-REBOTE AL CAMBIAR DE CAMPO (el "sube y baja" de Monto -> Descripcion).
+   Medido cuadro a cuadro sobre un video real: el sheet recorria 1102px para desplazarse 336px
+   netos, con TRES cambios de direccion en 270ms. La causa: al pasar de Monto (teclado numerico)
+   a Descripcion (teclado alfabetico), iOS no "cambia" el teclado — BAJA el viejo y SUBE el nuevo.
+   Durante ~150ms el area visible CRECE, y como nosotros copiabamos ese crecimiento al instante,
+   el sheet se iba 220px para abajo y despues tenia que volver.
+   Arreglo: si el area visible crece MIENTRAS hay un campo enfocado, no lo aplicamos enseguida:
+   esperamos 160ms. Si en ese rato vuelve a achicarse (o sea, era un cambio de teclado), la bajada
+   se descarta y el sheet nunca se movio para abajo. Si el teclado se cerro de verdad, se aplica
+   igual 160ms mas tarde: imperceptible. Los achiques se aplican SIEMPRE al toque, para que el
+   sheet nunca quede tapado por el teclado ni por un instante. */
+function ajustarVV(){
+  const vv = window.visualViewport;
+  const h  = vv ? vv.height : window.innerHeight;
+  if(_campoFocuseado && h > _vvH + 24){
+    clearTimeout(_vvGrowTimer);
+    _vvGrowTimer = setTimeout(escribirVV, 160);
+    return;
+  }
+  clearTimeout(_vvGrowTimer);
+  escribirVV();
 }
 if(window.visualViewport){
   // El teclado subiendo dispara 'resize' varias veces seguidas. En cada uno actualizamos las
@@ -1767,7 +1793,21 @@ document.addEventListener("focusout", e=>{
    intento, instantáneo, disparado cuando el teclado ya se asentó (ver pedirCentrado). */
 function asegurarVisible(el){
   if(!el) return;
-  try { el.scrollIntoView({ block:"center", inline:"nearest", behavior:"smooth" }); }
+  /* Primero PREGUNTAMOS si hace falta. Antes centrabamos siempre (block:"center") y con animacion
+     ("smooth"), asi que en cada cambio de campo habia un movimiento garantizado aunque el campo ya
+     estuviera perfectamente a la vista — parte del "sube y baja". Ahora: si el campo ya se ve
+     comodo dentro del area visible, no tocamos NADA.
+     Y si hay que moverse, usamos block:"nearest" (mueve lo MINIMO necesario, no lo lleva al medio)
+     y behavior:"auto" (instantaneo): una correccion se nota menos si no viene animada.
+     El calculo compara contra visualViewport, no contra el layout: en iOS el teclado se superpone,
+     asi que el navegador "cree" que la pagina entera se ve y hay que corregirlo a mano. */
+  const vv    = window.visualViewport;
+  const vTop  = vv ? vv.offsetTop : 0;
+  const vH    = vv ? vv.height    : window.innerHeight;
+  const r     = el.getBoundingClientRect();
+  const MARGEN = 8;
+  if((r.top - vTop) >= MARGEN && ((vTop + vH) - r.bottom) >= MARGEN) return;
+  try { el.scrollIntoView({ block:"nearest", inline:"nearest", behavior:"auto" }); }
   catch(e){ el.scrollIntoView(); }
 }
 /* El foco de un campo lo maneja el focusin de más arriba (setea _campoActivo y dispara el
