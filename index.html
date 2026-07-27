@@ -1589,17 +1589,20 @@ function exportarExcel(){
   const sep=";", L=[];
   // Celda de texto segura contra inyección de fórmulas (=,+,-,@) al abrir en Excel/Sheets.
   const cell = s => { let t=String(s==null?"":s); if(/^[=+\-@]/.test(t)) t="'"+t; return '"'+t.replace(/"/g,'""')+'"'; };
-  // Importe como número con coma decimal (es-AR) para que Excel lo lea como número y no como texto.
-  const num  = v => String(v).replace(".", ",");
+  // Importe: entero redondeado a pesos (igual que muestra la app con maximumFractionDigits:0).
+  // Sin separador decimal => lo lee cualquier Excel sin importar la config regional (coma/punto).
+  // Signo: los ingresos van en positivo y los gastos en negativo, así sumando la columna
+  // de un mes te da el saldo (ingresos - gastos) idéntico al de la app.
+  const num  = v => String(Math.round(v));
   L.push(["Mes","Tipo","Clasificación","Importe"].join(sep));
 
   let ym = ini, guarda = 0;
   while(ym <= fin && guarda++ < 1200){   // tope de seguridad (100 años): nunca un loop infinito
     const c = computeMes(ym);
     c.ingresos.forEach(g => L.push([cell(ym), cell("Ingreso"),         cell(g.nombre),    num(g.monto)].join(sep)));
-    c.fijos   .forEach(f => L.push([cell(ym), cell("Gastos fijos"),    cell(f.nombre),    num(f.monto)].join(sep)));
-    c.cuotas  .forEach(q => L.push([cell(ym), cell("Cuotas"),          cell(q.nombre),    num(q.monto)].join(sep)));
-    c.variables.forEach(v => L.push([cell(ym), cell("Gastos variables"), cell(v.categoria), num(v.monto)].join(sep)));
+    c.fijos   .forEach(f => L.push([cell(ym), cell("Gastos fijos"),    cell(f.nombre),    num(-f.monto)].join(sep)));
+    c.cuotas  .forEach(q => L.push([cell(ym), cell("Cuotas"),          cell(q.nombre),    num(-q.monto)].join(sep)));
+    c.variables.forEach(v => L.push([cell(ym), cell("Gastos variables"), cell(v.categoria), num(-v.monto)].join(sep)));
     ym = ymAdd(ym, 1);
   }
 
