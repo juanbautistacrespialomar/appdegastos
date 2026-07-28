@@ -69,11 +69,19 @@
   /* .wrap ES el scroller de la app: altura = área realmente visible (--vv-h, que se achica cuando
      sube el teclado). Con el body bloqueado, el scroll de todo el contenido pasa por acá, dentro de
      un alto controlado. Por eso scrollIntoView puede centrar bien un campo sin que iOS lo pise. */
-  .wrap { width:100%; max-width:600px; box-sizing:border-box; flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; padding:calc(16px + env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom) + 92px + var(--kb,0px)); }
+  /* padding-top = SOLO el safe-area: los 16px de aire de arriba ahora los pone el .header
+     (para que, al quedar sticky, se pegue justo debajo de la isla sin saltar 16px). */
+  .wrap { width:100%; max-width:600px; box-sizing:border-box; flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; padding:env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 92px + var(--kb,0px)); }
   .row { display:flex; align-items:center; }
   .between { justify-content:space-between; }
   h1 { font-size:20px; margin:0; }
-  .header { gap:8px; margin-bottom:16px; }
+  /* Header PEGADO arriba: los botones de tema/ojo quedan siempre al alcance, aunque
+     scrollees o esté el teclado abierto (antes se iban muy arriba y no llegabas).
+     - top = safe-area: se pega justo debajo de la isla (la franja .statusbar-bg la tapa).
+     - padding-top:16px = el aire que antes ponía el .wrap; así no salta al pegarse.
+     - background var(--bg) opaco: el contenido pasa limpio por detrás.
+     - z-index 45: por encima del contenido, por debajo de statusbar(55)/modal(60). */
+  .header { gap:8px; margin-bottom:16px; position:sticky; top:env(safe-area-inset-top); z-index:45; background:var(--bg); padding-top:16px; }
   .btn { border:none; border-radius:10px; font:inherit; cursor:pointer; color:var(--txt); }
   .btn-ghost { background:var(--card2); padding:9px 12px; font-size:14px; display:inline-flex; align-items:center; gap:7px; }
   .btn-ghost:active { background:var(--hover); }
@@ -187,8 +195,11 @@
   input:focus,select:focus { outline:none; border-color:var(--sky); }
   /* Respiro para scrollIntoView. Bajado de 100px a 24px en la 6.31: con block:"center" el margen
      grande no molestaba, pero con block:"nearest" (que mueve lo minimo) un margen de 100px obliga
-     a scrollear aunque el campo ya se vea. 24px es el aire que queda entre el campo y el teclado. */
-  input, select, textarea { scroll-margin-top:24px; scroll-margin-bottom:24px; }
+     a scrollear aunque el campo ya se vea. 24px es el aire que queda entre el campo y el teclado.
+     scroll-margin-TOP más grande (safe-area + alto del header sticky ≈ 60px): SOLO aplica cuando
+     un campo alinea contra el borde de ARRIBA (raro: los campos con teclado paran abajo, usando
+     scroll-margin-bottom). Así, si eso pasa, el campo queda debajo del header y no tapado. */
+  input, select, textarea { scroll-margin-top:calc(env(safe-area-inset-top) + 64px); scroll-margin-bottom:24px; }
   .btn-add { background:var(--sky); color:#04202B; padding:11px; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; gap:7px; }
   .btn-add:active { filter:brightness(.92); }
   .crow { display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--card2); border-radius:10px; padding:8px; margin-bottom:8px; }
@@ -462,7 +473,7 @@ function ic(k, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24
 /* Chevron de colapso: colapsado = apunta a la derecha; abierto = rota 90deg hacia abajo. */
 function chev(colapsado){ return '<svg class="fold-ic'+(colapsado?'':' open')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'; }
 
-const APP_VERSION = "6.31";
+const APP_VERSION = "6.32";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
@@ -1405,9 +1416,14 @@ function renderAjustes(){
     } else if(confirm('¿Borrar "'+nm+'" por completo?\n(No tiene importe en meses anteriores.)')){ config.fijos.splice(i,1); persistC(); render(); }
   });
   $("content").querySelectorAll("[data-t='delcuota']").forEach(b=>b.onclick=()=>{ const i=+b.dataset.i; const nm=(config.cuotas[i]&&config.cuotas[i].n)||"esta cuota"; if(confirm('¿Borrar la cuota "'+nm+'"?')){ config.cuotas.splice(i,1); persistC(); render(); } });
-  $("add-ing").onclick=()=>{ ajFold.ing=false; config.ingresos.push({n:"",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
-  $("add-fijo").onclick=()=>{ ajFold.fijos=false; config.fijos.push({n:"",cat:"Servicios",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
-  $("add-cuota").onclick=()=>{ ajFold.cuotas=false; config.cuotas.push({n:"",f:"Visa",c:1,t:6,m:0,tot:0,d:mesActivo}); persistC(); render(); };
+  /* unshift (no push): el item nuevo entra al PRINCIPIO del array → se renderiza como primera
+     fila, justo debajo del botón "Agregar" (que está arriba del panel). Así no hay que scrollear
+     hasta abajo para completarlo. El índice (data-i) se recalcula solo en cada render, así que
+     reordenar es inofensivo (el orden del array es puramente visual: montos/nombres se resuelven
+     por fecha en .hist, no por posición). */
+  $("add-ing").onclick=()=>{ ajFold.ing=false; config.ingresos.unshift({n:"",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
+  $("add-fijo").onclick=()=>{ ajFold.fijos=false; config.fijos.unshift({n:"",cat:"Servicios",hist:[{d:mesActivo,m:0}]}); persistC(); render(); };
+  $("add-cuota").onclick=()=>{ ajFold.cuotas=false; config.cuotas.unshift({n:"",f:"Visa",c:1,t:6,m:0,tot:0,d:mesActivo}); persistC(); render(); };
   $("reset").onclick=()=>{
     confirmar(
       "Borrar todo y empezar de cero",
