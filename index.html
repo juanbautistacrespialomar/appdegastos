@@ -706,7 +706,7 @@ let colapsado={};
 let colCuotas={};
 let ajFold={ing:true,fijos:true,cuotas:true};
 let editId=null;
-let oculto=false;
+let oculto=(function(){ try{ return localStorage.getItem("mg_oculto")==="1"; }catch(e){ return false; } })();
 let fTexto="", fCat="__todas", fMedio="__todos";
 
 const $ = id => document.getElementById(id);
@@ -1644,7 +1644,7 @@ $("mes-prevA").onclick = ()=>{ selAnioMes--; pintarSelectorMes(); };
 $("mes-nextA").onclick = ()=>{ selAnioMes++; pintarSelectorMes(); };
 $("mes-x").onclick = ()=>$("modalMes").classList.remove("open");
 $("modalMes").onclick = (e)=>{ if(e.target===$("modalMes")) $("modalMes").classList.remove("open"); };
-$("eyeBtn").onclick=()=>{ oculto=!oculto; render(); };
+$("eyeBtn").onclick=()=>{ oculto=!oculto; try{ localStorage.setItem("mg_oculto", oculto?"1":"0"); }catch(e){} render(); };
 /* Tema claro/oscuro: SOLO cambia colores (variables CSS). No toca datos: la preferencia
    se guarda en su propia clave "mg_theme", aparte de tus gastos. No llama a render(). */
 const THEME_KEY="mg_theme";
