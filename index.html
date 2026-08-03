@@ -811,10 +811,15 @@ function abrirDescList(){
   items = items.slice(0,30);
   if(items.length===0){ cerrarDescList(); return; } // sin parecidos: queda lo que escribiste
   box.innerHTML = items.map(d=>`<div class="combo-opt">${esc(d)}</div>`).join("");
-  // Si abajo no hay lugar (teclado o borde inferior), la desplegamos hacia arriba.
+  // Mismo criterio robusto que en setupCombo: medimos input y sheet con el mismo rect.
   const r=$("q-desc").getBoundingClientRect();
-  const visH=(window.visualViewport && window.visualViewport.height) || window.innerHeight;
-  box.classList.toggle("up", (visH - r.bottom) < 230);
+  const host=$("q-desc").closest(".modal-bg");
+  const hr=host ? host.getBoundingClientRect() : null;
+  const topLim=hr ? hr.top : 0;
+  const botLim=hr ? hr.bottom : ((window.visualViewport && window.visualViewport.height) || window.innerHeight);
+  const arriba=r.top - topLim, abajo=botLim - r.bottom, irArriba=arriba > abajo;
+  box.classList.toggle("up", irArriba);
+  box.style.maxHeight=Math.max(120,(irArriba?arriba:abajo)-12)+"px";
   box.style.display="block";
 }
 function cerrarDescList(){ const box=$("q-desc-list"); if(box){ box.style.display="none"; box.innerHTML=""; } }
@@ -890,10 +895,18 @@ function setupCombo(input, getOptions, onPick){
     items = items.slice(0,30);
     if(items.length===0){ cerrar(); return; }       // sin parecidos: queda lo que escribiste
     box.innerHTML = items.map(d=>`<div class="combo-opt">${esc(d)}</div>`).join("");
-    // si abajo no hay lugar (teclado / borde inferior), la desplegamos hacia arriba
+    // Elegimos el lado con MÁS lugar y limitamos el alto al hueco real, así no se corta.
+    // Clave iOS: medimos el input Y el borde del sheet con el MISMO getBoundingClientRect
+    // (no mezclamos visualViewport.height, que allá vive en otro sistema de coordenadas).
+    // El .modal-bg ya está posicionado arriba del teclado, así que su rect nos da los límites.
     const r=input.getBoundingClientRect();
-    const visH=(window.visualViewport && window.visualViewport.height) || window.innerHeight;
-    box.classList.toggle("up", (visH - r.bottom) < 230);
+    const host=input.closest(".modal-bg");
+    const hr=host ? host.getBoundingClientRect() : null;
+    const topLim=hr ? hr.top : 0;
+    const botLim=hr ? hr.bottom : ((window.visualViewport && window.visualViewport.height) || window.innerHeight);
+    const arriba=r.top - topLim, abajo=botLim - r.bottom, irArriba=arriba > abajo;
+    box.classList.toggle("up", irArriba);
+    box.style.maxHeight=Math.max(120,(irArriba?arriba:abajo)-12)+"px";
     box.style.display="block";
   }
   function cerrar(){ box.style.display="none"; box.innerHTML=""; }
