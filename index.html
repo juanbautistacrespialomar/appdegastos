@@ -340,7 +340,10 @@
     <div class="row between" style="margin-bottom:10px"><strong id="m-title">Nuevo gasto variable</strong><button id="m-close" class="del" aria-label="Cerrar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="grid">
       <input class="full js-money" type="text" inputmode="decimal" id="q-monto" placeholder="Monto ($)  ej: 1234,50">
-      <select id="q-cat"></select>
+      <div class="combo" id="q-cat-wrap">
+        <input type="text" id="q-cat" placeholder="Categoría — escribí o elegí" autocomplete="off">
+        <div class="combo-list" id="q-cat-list"></div>
+      </div>
       <div class="combo" id="q-medio-wrap">
         <input type="text" id="q-medio" placeholder="Forma de pago — escribí o elegí" autocomplete="off">
         <div class="combo-list" id="q-medio-list"></div>
@@ -462,7 +465,7 @@ function ic(k, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24
 /* Chevron de colapso: colapsado = apunta a la derecha; abierto = rota 90deg hacia abajo. */
 function chev(colapsado){ return '<svg class="fold-ic'+(colapsado?'':' open')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'; }
 
-const APP_VERSION = "6.33";
+const APP_VERSION = "6.34";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
@@ -832,6 +835,37 @@ function formasDePago(){
   return Object.keys(cont).sort((a,b)=> (cont[b]-cont[a]) || a.localeCompare(b,"es"));
 }
 
+/* ===== Categorías conocidas =====
+   Mismo criterio que formasDePago(): arranca de las base (CATS) y suma TODO lo que ya
+   usaste (en gastos variables y en fijos). Así, al cargar un gasto, te aparece cualquier
+   categoría que hayas creado antes y la re-elegís en vez de tipear una variante que después
+   rompe la agrupación del resumen. Diferencia clave con las formas de pago: éstas ordenan
+   por frecuencia; las categorías se ordenan ALFABÉTICO (localeCompare "es", respeta acentos
+   y ñ), como pediste. Agregar una categoría nueva = escribirla y guardar el gasto: al quedar
+   "usada" en mov, vuelve a aparecer sola la próxima vez (idéntico al medio de pago). */
+function categorias(){
+  const set={};
+  const add = s => { s=(s||"").toString().trim(); if(s) set[s]=true; };
+  CATS.forEach(add);                    // base, siempre presentes
+  mov.forEach(m=>add(m.categoria));     // usadas en gastos variables
+  config.fijos.forEach(f=>add(f.cat));  // usadas en gastos fijos
+  return Object.keys(set).sort((a,b)=>a.localeCompare(b,"es"));
+}
+
+/* Color estable para categorías que NO están en COLORES (las que creás vos). Deriva un
+   color determinístico del nombre (mismo nombre → mismo color siempre), así el donut y la
+   leyenda no las pintan todas de gris. NO pisa las que ya tienen color en COLORES: es puramente
+   aditivo. Se corre al inicio de cada render(), antes de dibujar el resumen. */
+const PALETA_CAT = ["#f97316","#10b981","#8b5cf6","#ef4444","#14b8a6","#e879f9","#f59e0b","#06b6d4","#a3e635","#fb7185","#38bdf8","#c084fc","#4ade80","#f43f5e"];
+function ensureColores(){
+  categorias().forEach(c=>{
+    if(!COLORES[c]){
+      let h=0; for(let i=0;i<c.length;i++) h=(h*31 + c.charCodeAt(i))|0;
+      COLORES[c]=PALETA_CAT[Math.abs(h)%PALETA_CAT.length];
+    }
+  });
+}
+
 /* ===== Combobox reutilizable: convierte cualquier <input> en autocompletar filtrable =====
    Es el mismo patrón del combo de descripción, pero genérico para reusarlo en los campos
    de forma de pago (modal de gasto) y de tarjeta (cada cuota en Ajustes).
@@ -903,6 +937,18 @@ function poblarFiltroMedios(){
     formasDePago().map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join("");
   sel.value = [...sel.options].some(o=>o.value===cur) ? cur : "__todos";
   if(sel.value!==cur) fMedio=sel.value;
+}
+
+/* Igual que poblarFiltroMedios pero para el filtro de categorías: se rearma en cada render
+   con categorias() (alfabético), así cualquier categoría nueva que hayas cargado queda
+   filtrable. Conserva la elegida si todavía existe; si no, cae a "Todas". */
+function poblarFiltroCats(){
+  const sel=$("f-cat"); if(!sel) return;
+  const cur=fCat;
+  sel.innerHTML = `<option value="__todas">Todas las categorías</option>` +
+    categorias().map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  sel.value = [...sel.options].some(o=>o.value===cur) ? cur : "__todas";
+  if(sel.value!==cur) fCat=sel.value;
 }
 
 function montoVigente(hist, ym){ let best=null; (hist||[]).forEach(h=>{ if(h.d<=ym && (!best||h.d>best.d)) best=h; }); return best?best.m:0; }
@@ -1005,7 +1051,9 @@ function render(){
   $("eyeBtn").classList.toggle("oculto", oculto);
   $("filtros").style.display = vista==="mov" ? "" : "none";
   $("fab").style.display = (vista==="resumen"||vista==="mov") ? "" : "none";
+  ensureColores();          // asegura color para categorías nuevas antes de dibujar donut/leyenda
   poblarFiltroMedios();
+  poblarFiltroCats();
   const _orden=["resumen","mov","cuotas","ajustes"], _idx=_orden.indexOf(vista), _cambioVista=vista!==vistaPrev;
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.v===vista));
   if(_idx>=0) $("tabInd").style.transform="translateX("+(_idx*100)+"%)";
@@ -1190,7 +1238,7 @@ function renderCuotas(){
 }
 
 function renderAjustes(){
-  const catOpts = sel => CATS.map(c=>`<option ${c===sel?"selected":""}>${c}</option>`).join("");
+  const catOpts = sel => categorias().map(c=>`<option ${c===sel?"selected":""}>${c}</option>`).join("");
   const tarjOpts = sel => TARJETAS.map(f=>`<option value="${f}" ${f===sel?"selected":""}>${f==="MercadoPago"?"Mercado Pago":f}</option>`).join("");
   const nowY = new Date().getFullYear();
   const mesSel = (i,selM) => `<select class="mini" data-cmes="${i}">`+MC.map((mm,idx)=>`<option value="${idx+1}" ${idx+1===selM?"selected":""}>${mm}</option>`).join("")+`</select>`;
@@ -1511,7 +1559,7 @@ function focoSinSalto(el){
 
 function abrirModalAlta(){
   editId=null; $("m-title").textContent="Nuevo gasto variable";
-  $("q-monto").value=""; $("q-desc").value=""; $("q-cat").selectedIndex=0; $("q-medio").value="Efectivo"; $("q-fecha").value=hoy();
+  $("q-monto").value=""; $("q-desc").value=""; $("q-cat").value=""; $("q-medio").value="Efectivo"; $("q-fecha").value=hoy();
   $("q-add").innerHTML=ic('plus')+" Agregar";   // textContent escaparia el SVG
   poblarSugerencias(); cerrarDescList();
   $("modal").classList.add("open"); focoSinSalto($("q-monto"));
@@ -1660,10 +1708,10 @@ aplicarTema(temaActual);
 $("themeBtn").onclick=()=>{ temaActual = temaActual==="light"?"dark":"light"; try{ localStorage.setItem(THEME_KEY,temaActual); }catch(e){} aplicarTema(temaActual); };
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ if(vista===t.dataset.v){ const w=document.querySelector(".wrap"); (w||window).scrollTo({top:0,behavior:"smooth"}); return; } vista=t.dataset.v; render(); });
 
-$("q-cat").innerHTML = CATS.map(c=>`<option>${c}</option>`).join("");
+setupCombo($("q-cat"), categorias, null);       // categoría: input editable + buscador + agregar nueva (igual que el medio de pago, pero alfabético)
 setupCombo($("q-medio"), formasDePago, null);   // medio de pago del gasto variable: input editable + sugerencias
-$("f-cat").innerHTML = `<option value="__todas">Todas las categorías</option>` + CATS.map(c=>`<option value="${c}">${c}</option>`).join("");
 poblarFiltroMedios();   // el filtro de medios se arma dinámico (y se refresca en cada render)
+poblarFiltroCats();     // idem el de categorías
 $("f-texto").oninput=()=>{ fTexto=$("f-texto").value; render(); };
 $("f-cat").onchange=()=>{ fCat=$("f-cat").value; render(); };
 $("f-medio").onchange=()=>{ fMedio=$("f-medio").value; render(); };
@@ -1698,11 +1746,12 @@ $("q-add").onclick=()=>{
   if(!monto||monto<=0){ $("q-monto").focus(); return; }
   const desc=$("q-desc").value.trim();
   const medio=$("q-medio").value.trim() || "Efectivo";
+  const cat=$("q-cat").value.trim() || "Otros";   // fallback: si quedó vacía, va a "Otros" (mismo criterio que el medio → "Efectivo")
   if(editId){
     const v=mov.find(x=>x.id===editId);
-    if(v){ v.monto=monto; v.categoria=$("q-cat").value; v.medio=medio; v.fecha=$("q-fecha").value||hoy(); v.descripcion=desc; }
+    if(v){ v.monto=monto; v.categoria=cat; v.medio=medio; v.fecha=$("q-fecha").value||hoy(); v.descripcion=desc; }
   } else {
-    mov.unshift({id:Date.now()+"_"+Math.random().toString(36).slice(2,6), monto, categoria:$("q-cat").value, fecha:$("q-fecha").value||hoy(), descripcion:desc, medio:medio});
+    mov.unshift({id:Date.now()+"_"+Math.random().toString(36).slice(2,6), monto, categoria:cat, fecha:$("q-fecha").value||hoy(), descripcion:desc, medio:medio});
   }
   persistM(); cerrarModal(); vista="mov"; render();
 };
