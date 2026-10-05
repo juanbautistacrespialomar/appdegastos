@@ -169,3 +169,13 @@ function ordenarCuotas(idxs, ym){
     return finCuota(qa).localeCompare(finCuota(qb)) || (qa.n||"").localeCompare(qb.n||"");
   });
 }
+
+/* ===== Mes que se muestra al volver a la app (v8.4) =====
+   iOS puede dejar la app "dormida" en segundo plano varios días. Si se durmió en octubre y la
+   abrís en noviembre, seguía mostrando octubre. Regla: si cambió el mes calendario y estabas
+   mirando el mes que ERA el actual, pasás al nuevo; si estabas mirando otro mes a propósito
+   (uno viejo o uno futuro), no te movemos. */
+function mesAlVolver(mesMirado, mesRealAntes, mesRealAhora){
+  if(mesRealAhora===mesRealAntes) return mesMirado;
+  return mesMirado===mesRealAntes ? mesRealAhora : mesMirado;
+}

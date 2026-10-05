@@ -38,9 +38,24 @@ function mostrarLockScreen(esInicial){
   }
 }
 function iniciarApp(){ if(lock.enabled) mostrarLockScreen(true); else render(); }
+
+/* Al volver a la app (v8.4): si cambió el día, refrescamos (las etiquetas "Hoy"/"Ayer", la
+   comparación "a la misma altura del mes", el día que propone la carga). Si además cambió el
+   mes y estabas en el mes en curso, pasamos al mes nuevo (ver mesAlVolver en 01-dominio.js). */
+let _ymVisto=ymNow(), _diaVisto=hoy();
+function alVolverALaApp(){
+  const ahora=ymNow(), dia=hoy();
+  if(dia===_diaVisto) return;
+  const antes=mesActivo;
+  mesActivo=mesAlVolver(mesActivo, _ymVisto, ahora);
+  _ymVisto=ahora; _diaVisto=dia;
+  render();
+  if(mesActivo!==antes) toast("Arrancó "+MESES[+ahora.split("-")[1]-1].toLowerCase()+": te muestro el mes nuevo");
+}
+window.addEventListener("pageshow", alVolverALaApp);
 document.addEventListener("visibilitychange", ()=>{
   if(document.visibilityState==="hidden" && lock.enabled) bloqueada=true;
   else if(document.visibilityState==="visible" && lock.enabled && bloqueada) mostrarLockScreen(false);
-  if(document.visibilityState==="visible") sincronizarRecordatorios();
+  if(document.visibilityState==="visible"){ alVolverALaApp(); sincronizarRecordatorios(); }
 });
 iniciarApp();
