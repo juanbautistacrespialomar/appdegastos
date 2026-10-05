@@ -28,63 +28,103 @@ function filaPlan(tipo, i, nombre, meta, monto, extra, apagado){
     <span class="l"><span class="n">${esc(nombre)}</span>${extra||''}<span class="m">${esc(meta)}</span></span>
     <span class="r"${apagado?' style="color:var(--muted)"':''}>${fmt(monto)}<i>${ic('chevR')}</i></span></button>`;
 }
-function seccionPlan(id, titulo, tipo, cuerpo, vacio, extraTitulo){
-  return `<div class="panel plsec" id="pnl-${id}">
-    <div class="plhd"><span class="pltit">${titulo}${extraTitulo?` <span>${extraTitulo}</span>`:''}</span>
-      <button class="pladd" data-sheet="${tipo}" data-i="">${ic('plus')}Agregar</button></div>
-    ${cuerpo || `<div class="plempty">${vacio}</div>`}</div>`;
+/* Secciones desplegables (v8.3): cerradas muestran cantidad y total; tocás el encabezado y se
+   abren. Lo que dejaste abierto o cerrado se recuerda en este dispositivo. */
+let planFold = (()=>{ try{ return JSON.parse(localStorage.getItem("mg_plfold")) || {}; }catch(e){ return {}; } })();
+const secCerrada = id => planFold[id]!==false;   // por defecto, cerradas
+function seccionPlan(id, titulo, tipo, cuerpo, vacio, cant, total){
+  const cerrada = secCerrada(id);
+  return `<div class="panel plsec${cerrada?' cerrada':''}" id="pnl-${id}">
+    <div class="plhd" data-plfold="${id}" role="button" tabindex="0" aria-expanded="${!cerrada}">
+      <span class="pltit">${chev(cerrada)}${titulo} <span>· ${cant}</span></span>
+      <span class="plhd-r">${total?`<span class="plhd-tot">${total}</span>`:''}
+        <button class="pladd" data-sheet="${tipo}" data-i="" aria-label="Agregar ${titulo.toLowerCase()}">${ic('plus')}</button></span></div>
+    ${cerrada ? '' : (cuerpo || `<div class="plempty">${vacio}</div>`)}</div>`;
+}
+/* Color de cada tarjeta, por marca (así Visa y Mercado Pago no se confunden). Las que no se
+   reconocen toman un color fijo según su nombre: siempre el mismo para la misma tarjeta. */
+function colorTarjeta(f){
+  const n=String(f||"").toLowerCase();
+  if(!n || n==="__sin") return "var(--muted)";
+  if(n.includes("visa")) return "#4f7df0";
+  if(n.includes("master")) return "#f59e0b";
+  if(n.includes("mercado") || n==="mp") return "#22b8e8";
+  if(n.includes("amex") || n.includes("american")) return "#2fb39c";
+  if(n.includes("naranja")) return "#fb7a3c";
+  if(n.includes("cabal")) return "#34c77b";
+  const pal=["#a78bfa","#f472b6","#34d399","#fbbf24","#60a5fa","#f87171"];
+  let h=0; for(const ch of n) h=(h*31+ch.charCodeAt(0))>>>0;
+  return pal[h%pal.length];
 }
 
-/* Cuotas agrupadas por tarjeta. Encabezado del grupo = cuánto te viene ESE mes en esa tarjeta
-   (y al tocarlo, cómo baja en los próximos meses). Filas = cada compra con su progreso. */
+/* Cuotas agrupadas por tarjeta (v8.3). Cada tarjeta es un bloque con su color, lo que te viene
+   por mes en ese resumen y lo que resta. Tocás el bloque y se despliegan sus compras, ordenadas
+   de la que termina antes a la que termina después, y cómo baja el resumen los próximos meses.
+   Las tarjetas van de la que más pagás por mes a la que menos ("Sin tarjeta" al final). */
 function cuotasPlan(){
   const SIN="__sin";
   const keyF = q => (q.f && String(q.f).trim()) ? q.f : SIN;
   const ultK = q => (q.t||0)-(q.c||0);
   const activa = (q,ym) => { const k=ymDiff(q.d,ym); return k>=0 && k<=ultK(q); };
-  const fin = q => ymAdd(q.d, Math.max(0,ultK(q)));
   const grupos={};
-  config.cuotas.forEach((q,i)=>{ if(fin(q)<mesActivo) return; (grupos[keyF(q)]=grupos[keyF(q)]||[]).push(i); });
-  const otras=Object.keys(grupos).filter(f=>f!==SIN && !TARJETAS.includes(f));
-  let html="", totMes=0, totRest=0, finTot=null;
-  TARJETAS.concat(otras,[SIN]).forEach(f=>{
-    const idxs=grupos[f]; if(!idxs||!idxs.length) return;
+  config.cuotas.forEach((q,i)=>{ if(finCuota(q)<mesActivo) return; (grupos[keyF(q)]=grupos[keyF(q)]||[]).push(i); });
+  let totMes=0, totRest=0, finTot=null, cant=0;
+  const bloques = Object.keys(grupos).map(f=>{
+    const idxs=ordenarCuotas(grupos[f], mesActivo);
     const qs=idxs.map(i=>config.cuotas[i]);
     const mensual=qs.reduce((s,q)=>s+(activa(q,mesActivo)?(q.m||0):0),0);
     const resta=qs.reduce((s,q)=>{ const k=ymDiff(q.d,mesActivo); const rest=k<0?(ultK(q)+1):(ultK(q)-k+1); return s+Math.max(0,rest)*(q.m||0); },0);
-    const finG=qs.map(fin).reduce((a,b)=>b>a?b:a);
-    totMes+=mensual; totRest+=resta; if(!finTot||finG>finTot) finTot=finG;
-    const col=colCuotas[f]!==true;
-    const etiqueta=f===SIN?"Sin tarjeta":tarjetaLabel(f);
-    html+=`<div class="plgrp fgroup-c" data-card="${esc(f)}"><span>${chev(col)} ${esc(etiqueta)} · resta ${fmt(resta)}</span><span>${fmt(mensual)}/mes</span></div>`;
-    if(!col){
+    const finG=qs.map(finCuota).reduce((a,b)=>b>a?b:a);
+    totMes+=mensual; totRest+=resta; cant+=idxs.length; if(!finTot||finG>finTot) finTot=finG;
+    return {f, idxs, qs, mensual, resta, finG};
+  }).sort((a,b)=> (a.f===SIN)-(b.f===SIN) || b.mensual-a.mensual);
+
+  // Si dos tarjetas caen en el mismo color (ej: "Visa" y "Visa BBVA"), la segunda toma otro
+  // de la paleta: en pantalla, cada tarjeta se distingue de las demás.
+  const usados=new Set(), PAL_EXTRA=["#a78bfa","#f472b6","#34d399","#fbbf24","#60a5fa","#f87171","#2fb39c","#fb7a3c"];
+  bloques.forEach(bq=>{ let c=colorTarjeta(bq.f); if(bq.f!==SIN && usados.has(c)) c=PAL_EXTRA.find(x=>!usados.has(x))||c; usados.add(c); bq.color=c; });
+  let html="";
+  bloques.forEach(({f, idxs, qs, mensual, resta, finG, color})=>{
+    const abierta = colCuotas[f]===true;
+    const etiqueta = f===SIN ? "Sin tarjeta" : tarjetaLabel(f);
+    html+=`<div class="tj${abierta?' abierta':''}" style="--tj:${color}">
+      <div class="tjhd fgroup-c" data-card="${esc(f)}" role="button" tabindex="0" aria-expanded="${abierta}">
+        <span class="tjic">${ic('card')}</span>
+        <span class="tjtx"><b>${esc(etiqueta)}</b><small>${idxs.length} compra${idxs.length===1?'':'s'} · hasta ${mesCortoA(finG)}</small></span>
+        <span class="tjm">${fmt(mensual)}<small>/mes</small><em>resta ${fmt(resta)}</em></span>${chev(!abierta)}
+      </div>`;
+    if(abierta){
+      html+=`<div class="tjbody">`;
       const chips=[];
       for(let j=1;j<=6;j++){ const ym=ymAdd(mesActivo,j); const m=qs.reduce((s,q)=>s+(activa(q,ym)?(q.m||0):0),0); if(m<=0) break;
         chips.push(`<span class="cq-chip${m<mensual?' baja':''}"><b>${MC[(+ym.split("-")[1])-1]}</b>${fmt(m)}</span>`); }
-      if(chips.length) html+=`<div class="cq-chips" style="margin:6px 0 4px">${chips.join("")}</div>`;
+      if(chips.length) html+=`<div class="cq-chips" style="margin:2px 0 6px">${chips.join("")}</div>`;
+      idxs.forEach(i=>{
+        const q=config.cuotas[i], k=ymDiff(q.d,mesActivo), nro=(q.c||1)+k, t=q.t||0;
+        const fut = k<0, ultima = !fut && finCuota(q)===mesActivo;
+        const hechas = fut ? 0 : Math.min(nro, t);
+        // Barrita de progreso: un segmento por cuota (hasta 24; más que eso, barra continua).
+        const prog = t<=24
+          ? `<span class="plprog">${Array.from({length:t},(_,s)=>`<span${s<hechas?' class="on"':''}></span>`).join("")}</span>`
+          : `<span class="plprog"><span class="on" style="flex:${hechas}"></span><span style="flex:${t-hechas}"></span></span>`;
+        const meta = fut ? `${q.cat||"Cuotas"} · empieza en ${mesLargo(ymAdd(q.d,1-(q.c||1))).toLowerCase()}`
+                   : ultima ? `${q.cat||"Cuotas"} · última cuota (${nro} de ${t})`
+                   : `${q.cat||"Cuotas"} · cuota ${nro} de ${t} · termina en ${mesCortoA(finCuota(q))}`;
+        html+=filaPlan("cuota", i, q.n||"Sin detalle", meta, q.m||0, prog, fut);
+      });
+      html+=`</div>`;
     }
-    idxs.forEach(i=>{
-      const q=config.cuotas[i], k=ymDiff(q.d,mesActivo), nro=(q.c||1)+k, t=q.t||0;
-      const fut = k<0;
-      const hechas = fut ? 0 : Math.min(nro, t);
-      // Barrita de progreso: un segmento por cuota (hasta 24; más que eso, barra continua).
-      const prog = t<=24
-        ? `<span class="plprog">${Array.from({length:t},(_,s)=>`<span${s<hechas?' class="on"':''}></span>`).join("")}</span>`
-        : `<span class="plprog"><span class="on" style="flex:${hechas}"></span><span style="flex:${t-hechas}"></span></span>`;
-      const meta = fut
-        ? `${q.cat||"Cuotas"} · empieza en ${mesLargo(ymAdd(q.d,1-(q.c||1))).toLowerCase()}`
-        : `${q.cat||"Cuotas"} · cuota ${nro} de ${t} · termina en ${mesCortoA(fin(q))}`;
-      html+=filaPlan("cuota", i, q.n||"Sin detalle", meta, q.m||0, prog, fut);
-    });
+    html+=`</div>`;
   });
-  return {html, totMes, totRest, fin:finTot};
+  return {html, totMes, totRest, fin:finTot, cant};
 }
 
 function renderPlan(){
   const cm=computeMes(mesActivo), libre=cm.ingreso-cm.tF-cm.tC, mesTxt=mesLargo(mesActivo);
   // Ingresos
-  let ingH="";
+  let ingH="", nIng=0;
   config.ingresos.forEach((g,i)=>{
+    const antes=ingH.length;
     if(g.once){
       const h=(g.hist||[]).find(x=>x.d===mesActivo); if(!h) return;
       ingH+=filaPlan("ing", i, h.n||g.n||"Ingreso", "Solo en "+mesTxt.toLowerCase(), h.m);
@@ -93,12 +133,14 @@ function renderPlan(){
     } else if(!ocultoEnAjustes(g,mesActivo)){
       ingH+=filaPlan("ing", i, nombreVigente(g,mesActivo)||"Ingreso", "Todos los meses"+(cambioEsteMes(g)?" · cambió este mes":""), montoVigente(g.hist,mesActivo));
     }
+    if(ingH.length>antes) nIng++;
   });
   // Fijos
-  let fijH="";
+  let fijH="", nFij=0;
   config.fijos.forEach((f,i)=>{
-    if(empiezaDespues(f)){ fijH+=filaPlan("fijo", i, f.n||"Gasto fijo", (f.cat||"")+" · empieza en "+mesLargo(f.hist[0].d).toLowerCase(), f.hist[0].m, "", true); return; }
+    if(empiezaDespues(f)){ nFij++; fijH+=filaPlan("fijo", i, f.n||"Gasto fijo", (f.cat||"")+" · empieza en "+mesLargo(f.hist[0].d).toLowerCase(), f.hist[0].m, "", true); return; }
     if(ocultoEnAjustes(f,mesActivo)) return;
+    nFij++;
     fijH+=filaPlan("fijo", i, nombreVigente(f,mesActivo)||"Gasto fijo", catVigente(f,mesActivo)+(cambioEsteMes(f)?" · cambió este mes":""), montoVigente(f.hist,mesActivo));
   });
   // Cuotas
@@ -121,12 +163,17 @@ function renderPlan(){
        <div class="psrow"><span><span class="cldot" style="background:var(--c2)"></span>Ya gastado en variables</span><span>− ${fmt(cm.tV)}</span></div>
        <div class="psrow tot"><span>Te queda</span><span style="color:${cm.saldo>=0?'var(--green)':'var(--red)'}">${fmt(cm.saldo)}</span></div>
      </div>`
-    + seccionPlan("ing", "Ingresos", "ing", ingH, "Todavía no cargaste ingresos para "+mesTxt.toLowerCase()+".")
-    + seccionPlan("fijos", "Gastos fijos", "fijo", fijH, "Alquiler, servicios, suscripciones… lo que pagás todos los meses.")
-    + seccionPlan("cuotas", "Cuotas", "cuota", cuotasCuerpo, "No hay cuotas activas en "+mesTxt.toLowerCase()+".")
-    + seccionPlan("presu", "Presupuestos", "presu", presH, "Poné un tope mensual a las categorías que querés controlar. Lo ves en Resumen.");
+    + seccionPlan("ing", "Ingresos", "ing", ingH, "Todavía no cargaste ingresos para "+mesTxt.toLowerCase()+".", nIng, fmt(cm.ingreso))
+    + seccionPlan("fijos", "Gastos fijos", "fijo", fijH, "Alquiler, servicios, suscripciones… lo que pagás todos los meses.", nFij, fmt(cm.tF))
+    + seccionPlan("cuotas", "Cuotas", "cuota", cuotasCuerpo, "No hay cuotas activas en "+mesTxt.toLowerCase()+".", qt.cant, fmt(cm.tC))
+    + seccionPlan("presu", "Presupuestos", "presu", presH, "Poné un tope mensual a las categorías que querés controlar. Lo ves en Resumen.", Object.keys(config.presu||{}).length, "");
 
-  $("content").querySelectorAll("[data-sheet]").forEach(b=>b.onclick=()=>{
+  $("content").querySelectorAll("[data-plfold]").forEach(h=>{
+    const tog=()=>{ const id=h.dataset.plfold; planFold[id]=!secCerrada(id) ? true : false; try{ localStorage.setItem("mg_plfold", JSON.stringify(planFold)); }catch(e){} render(); };
+    h.onclick=tog; h.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); tog(); } };
+  });
+  $("content").querySelectorAll("[data-sheet]").forEach(b=>b.onclick=(e)=>{
+    e.stopPropagation();   // el "+" vive en el encabezado: que no despliegue/pliegue la sección
     const t=b.dataset.sheet, raw=b.dataset.i;
     abrirSheet(t, raw==="" ? null : (t==="presu" ? raw : +raw));
   });
@@ -387,30 +434,30 @@ function guardarSheet(){
   }
 }
 
-/* Borrar / dar de baja. Misma lógica que antes: si el ítem tuvo monto en meses anteriores
-   se da de baja desde el mes que estás mirando (la historia queda); si no, se borra. */
+/* Borrar / dar de baja (v8.3: sin "¿Seguro?", con Deshacer). Misma lógica que antes: si el
+   ítem tuvo monto en meses anteriores se da de baja desde el mes que estás mirando (la
+   historia queda); si no, se borra. */
 function borrarSheet(){
   const s=SH;
   if(s.tipo==="cuota"){
     const q=config.cuotas[s.i];
-    confirmar("Borrar compra", `Se borra "${q.n||"esta compra"}" con todas sus cuotas, también de los meses pasados.`, ()=>{ config.cuotas.splice(s.i,1); persistC(); cerrarSheet(); render(); toast("Compra borrada"); }, "Borrar", true);
+    conDeshacer(`"${q.n||"Compra"}" borrada`, ()=>{ config.cuotas.splice(s.i,1); persistC(); cerrarSheet(); render(); });
     return;
   }
-  if(s.tipo==="presu"){ delete config.presu[s.i]; persistC(); cerrarSheet(); render(); toast("Presupuesto quitado"); return; }
+  if(s.tipo==="presu"){ conDeshacer("Presupuesto quitado", ()=>{ delete config.presu[s.i]; persistC(); cerrarSheet(); render(); }); return; }
   const lista = s.tipo==="fijo" ? config.fijos : config.ingresos, obj=lista[s.i];
-  const nm = s.n || "este ítem";
+  const nm = s.n || "Ítem";
   if(s.tipo==="ing" && obj.once){
-    confirmar("Borrar ingreso", `Se borra "${nm}" de ${mesLargo(mesActivo).toLowerCase()}.`, ()=>{ obj.hist=(obj.hist||[]).filter(h=>h.d!==mesActivo); if(!obj.hist.length) lista.splice(s.i,1); persistC(); cerrarSheet(); render(); }, "Borrar", true);
+    conDeshacer(`"${nm}" borrado`, ()=>{ obj.hist=(obj.hist||[]).filter(h=>h.d!==mesActivo); if(!obj.hist.length) lista.splice(s.i,1); persistC(); cerrarSheet(); render(); });
     return;
   }
   const tienePasado = montoVigente(obj.hist, ymAdd(mesActivo,-1)) > 0;
   if(tienePasado){
-    confirmar("Dar de baja", `"${nm}" deja de contar desde ${mesLargo(mesActivo).toLowerCase()}. Los meses anteriores quedan como estaban.`, ()=>{
+    conDeshacer(`"${nm}" dado de baja desde ${mesLargo(mesActivo).toLowerCase()}`, ()=>{
       obj.hist=obj.hist.filter(h=>h.d<mesActivo); cerrarSheet();
       if(s.tipo==="fijo") setVig(obj, mesActivo, 0, nombreVigente(obj,mesActivo), catVigente(obj,mesActivo)); else setVig(obj, mesActivo, 0, nombreVigente(obj,mesActivo));
-      toast("Dado de baja desde "+mesLargo(mesActivo).toLowerCase());
-    }, "Dar de baja", true);
+    });
   } else {
-    confirmar("Borrar", `"${nm}" no tiene montos en meses anteriores, así que se borra por completo.`, ()=>{ lista.splice(s.i,1); persistC(); cerrarSheet(); render(); }, "Borrar", true);
+    conDeshacer(`"${nm}" borrado`, ()=>{ lista.splice(s.i,1); persistC(); cerrarSheet(); render(); });
   }
 }

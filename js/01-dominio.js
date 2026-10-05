@@ -1,6 +1,6 @@
 /* ===== Tu Contador — js/01-dominio.js =====
    Datos y cálculos PUROS: constantes, fechas AAAA-MM, vigencias, computeMes, comparativas,
-   proyección de variables. No toca la pantalla ni el localStorage: por eso tiene tests (tests/).
+   proyección de variables. No toca la pantalla ni el localStorage: por eso tiene tests (test/).
    Todos los archivos comparten el mismo alcance global y se cargan EN ORDEN (ver index.html). */
 "use strict";
 
@@ -152,4 +152,20 @@ function estimarVariables(){
   const base=ymNow(); let s=0, n=0;
   for(let i=1;i<=3;i++){ const cc=computeMes(ymAdd(base,-i)); if(cc.tV>0){ s+=cc.tV; n++; } }
   return {est: n ? s/n : 0, n};
+}
+
+/* ===== Cuotas: fin y orden (v8.3) ===== */
+// Último mes (AAAA-MM) en que se paga la cuota. q.d es el mes de la cuota número q.c.
+function finCuota(q){ return ymAdd(q.d, Math.max(0,(q.t||0)-(q.c||0))); }
+// Orden para Plan: primero las que están en curso, de la que TERMINA ANTES a la que termina
+// después (a igual fin, por nombre); al final las que todavía no empezaron, por fecha de inicio.
+// Recibe y devuelve índices de config.cuotas (no reordena los datos guardados).
+function ordenarCuotas(idxs, ym){
+  return idxs.slice().sort((a,b)=>{
+    const qa=config.cuotas[a], qb=config.cuotas[b];
+    const fa=ymDiff(qa.d,ym)<0, fb=ymDiff(qb.d,ym)<0;          // ¿todavía no empezó?
+    if(fa!==fb) return fa?1:-1;
+    if(fa) return qa.d.localeCompare(qb.d) || (qa.n||"").localeCompare(qb.n||"");
+    return finCuota(qa).localeCompare(finCuota(qb)) || (qa.n||"").localeCompare(qb.n||"");
+  });
 }

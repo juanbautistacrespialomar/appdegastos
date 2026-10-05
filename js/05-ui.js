@@ -13,6 +13,7 @@ let catExpand=false;   // Resumen: mostrar todas las categorías o solo el top 5
 let editId=null;
 let oculto=(function(){ try{ return localStorage.getItem("mg_oculto")==="1"; }catch(e){ return false; } })();
 let fTexto="", fCat="__todas", fMedio="__todos";
+let fAlc="mes";   // Movimientos: buscar en "mes" (el que estás mirando) o en "todos" los meses
 
 const $ = id => document.getElementById(id);
 const fmt = n => oculto ? "$ •••••" : new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0}).format(Math.round(n)||0);
@@ -72,6 +73,34 @@ function toast(msg, onClick, tipo){
   t.classList.add("show");
   clearTimeout(t._timer);
   t._timer=setTimeout(()=>{ t.classList.remove("show"); }, onClick ? 9000 : 1600);
+}
+
+/* ===== Deshacer (v8.3) =====
+   En vez de preguntar "¿Seguro?" antes de borrar, borramos al toque y mostramos
+   "Gasto borrado · Deshacer" unos segundos. Es más rápido (un toque menos) y más seguro: el
+   cartel de confirmación se acepta por reflejo; el deshacer te salva aunque te equivoques.
+   Cómo funciona: antes de borrar sacamos una "foto" de los datos (config + movimientos);
+   si tocás Deshacer, volvemos a esa foto. "Borrar todo" sigue pidiendo confirmación. */
+function toastDeshacer(msg, deshacer){
+  let t=$("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast"; document.body.appendChild(t); }
+  t.className="toast info undo";
+  t.innerHTML=`<span></span><button type="button" class="tundo">Deshacer</button>`;
+  t.firstChild.textContent=msg;
+  t.onclick=null; t.style.cursor="default";
+  const cerrar=()=>{ clearTimeout(t._timer); t.classList.remove("show"); };
+  t.lastChild.onclick=(e)=>{ e.stopPropagation(); cerrar(); deshacer(); };
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer=setTimeout(cerrar, 6000);
+}
+function conDeshacer(msg, accion){
+  const foto={ c:JSON.stringify(config), m:JSON.stringify(mov) };
+  accion();
+  toastDeshacer(msg, ()=>{
+    config=normConfig(JSON.parse(foto.c)); mov=normMov(JSON.parse(foto.m));
+    persistC(); persistM(); render(); toast("Listo, quedó como antes ✓");
+  });
 }
 
 // Lista de descripciones que YA usaste (de tus movimientos), ordenadas por frecuencia.

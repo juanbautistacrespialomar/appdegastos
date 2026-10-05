@@ -47,7 +47,9 @@ function render(){
   $("eyeBtn").classList.toggle("oculto", oculto);
   $("filtros").style.display = vista==="mov" ? "" : "none";
   // Ajustes no depende del mes: ahí el selector de mes no tiene sentido (v7.1).
-  document.querySelector(".monthbar").style.display = vista==="ajustes" ? "none" : "";
+  // Sin selector de mes en Ajustes (no depende del mes) ni al buscar en todos los meses.
+  document.querySelector(".monthbar").style.display = (vista==="ajustes" || (vista==="mov" && fAlc==="todos")) ? "none" : "";
+  document.querySelectorAll("#f-alc [data-alc]").forEach(b=>b.classList.toggle("on", b.dataset.alc===fAlc));
   $("fab").style.display = (vista==="resumen"||vista==="mov"||vista==="plan") ? "" : "none";
   cerrarFabMenu();
   invalidarCalc();          // por si algo cambió en memoria sin pasar por persistC/persistM
@@ -137,7 +139,7 @@ function render(){
   }
   vistaPrev=vista;
 
-  $("content").querySelectorAll(".del-mov").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); if(confirm("¿Borrar este gasto?")){ mov=mov.filter(x=>x.id!==b.dataset.id); persistM(); render(); } });
+  $("content").querySelectorAll(".del-mov").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const id=b.dataset.id; conDeshacer("Gasto borrado", ()=>{ mov=mov.filter(x=>x.id!==id); persistM(); render(); }); });
   $("content").querySelectorAll(".var-row").forEach(el=>el.onclick=(e)=>{ if(e.target.closest(".del")) return; abrirModalDet(el.dataset.edit); });
   $("content").querySelectorAll(".fgroup").forEach(el=>el.onclick=()=>{ const cat=el.dataset.cat; colapsado[cat] = (colapsado[cat]!==false)? false : true; render(); });
   $("content").querySelectorAll(".fgroup-c").forEach(el=>el.onclick=()=>{ const card=el.dataset.card; colCuotas[card] = (colCuotas[card]===true)? false : true; render(); });
@@ -230,27 +232,46 @@ function etiquetaDia(f){
 }
 function renderMov(c){
   const q=fTexto.trim().toLowerCase();
+  const todos = fAlc==="todos";
   const filtroActivo = q!=="" || fCat!=="__todas" || fMedio!=="__todos";
-  const res = c.variables.filter(v=>{
+  // "Todos los meses" (v8.3): busca en TODO el historial, no solo en el mes que estás mirando.
+  const fuente = todos ? mov.slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")) : c.variables;
+  const res = fuente.filter(v=>{
     if(fCat!=="__todas" && v.categoria!==fCat) return false;
     if(fMedio!=="__todos" && v.medio!==fMedio) return false;
-    if(q && !((v.descripcion||"").toLowerCase().includes(q) || (v.categoria||"").toLowerCase().includes(q))) return false;
+    if(q && !((v.descripcion||"").toLowerCase().includes(q) || (v.categoria||"").toLowerCase().includes(q) || (v.medio||"").toLowerCase().includes(q))) return false;
     return true;
   });
   const suma = res.reduce((s,x)=>s+x.monto,0);
-  let h = `<div class="grouphdr"><span>${res.length} gasto${res.length===1?"":"s"}${filtroActivo?" con filtro":""} · ${nombreMes(mesActivo)}</span><span>${fmt(suma)}</span></div>`;
+  let h = `<div class="grouphdr"><span>${res.length} gasto${res.length===1?"":"s"}${filtroActivo?" con filtro":""} · ${todos?"todos los meses":nombreMes(mesActivo)}</span><span>${fmt(suma)}</span></div>`;
   // Si filtrás por una categoría que también tiene fijos o cuotas, te avisamos: el total de esa
   // categoría en Resumen los incluye y acá (registro de variables) no aparecen.
   let hayNota=false;
-  if(fCat!=="__todas"){
+  if(!todos && fCat!=="__todas"){
     const extra = c.fijos.filter(f=>f.cat===fCat).reduce((s,x)=>s+x.monto,0) + c.cuotas.filter(x=>x.cat===fCat).reduce((s,x)=>s+x.monto,0);
     if(extra>0){ hayNota=true; h += `<div class="note" data-goplan="1">${ic('card')}<span>Además tenés ${fmt(extra)} en fijos y cuotas de ${esc(fCat)} este mes. <u>Ver en Plan</u></span></div>`; }
   }
   if(!res.length){
     h += hayNota ? `<div class="empty">No cargaste gastos variables de ${esc(fCat)} este mes.</div>`
        : filtroActivo
-      ? emptyState('search','Sin resultados','Probá con otra descripción o cambiá los filtros de este mes.')
+      ? emptyState('search','Sin resultados', todos ? 'No hay nada parecido en ningún mes. Probá con otra palabra.' : 'Probá con otra descripción, cambiá los filtros o buscá en todos los meses.')
       : emptyState('dollar','Todavía no cargaste gastos','Cuando anotes tu primer gasto, lo vas a ver acá agrupado por día.', {label:'Cargar mi primer gasto', action:'abrirModalAlta()'});
+    $("content").innerHTML=h; return;
+  }
+  const filaMov = (v, conFecha) => fila(v.descripcion||v.categoria,
+    (conFecha ? (+v.fecha.slice(8,10))+" "+MC[+v.fecha.slice(5,7)-1].toLowerCase()+" · " : "")+v.categoria+" · "+v.medio,
+    v.monto, COLORES[v.categoria]||"#6B8194", v.id, v.id);
+  if(todos){
+    // Agrupado por mes (con subtotal), del más reciente al más viejo. Tope de filas para que
+    // un historial largo no trabe el celu: si hay más, se pide afinar la búsqueda.
+    const TOPE=400, porMes={}, ordenM=[];
+    res.slice(0,TOPE).forEach(v=>{ const ym=(v.fecha||"").slice(0,7); if(!porMes[ym]){ porMes[ym]=[]; ordenM.push(ym); } porMes[ym].push(v); });
+    ordenM.forEach(ym=>{
+      const items=porMes[ym], tot=res.filter(v=>(v.fecha||"").slice(0,7)===ym).reduce((s,x)=>s+x.monto,0);
+      h += `<div class="meshdr"><span>${nombreMes(ym)}</span><span>${fmt(tot)}</span></div>`;
+      h += items.map(v=>filaMov(v,true)).join("");
+    });
+    if(res.length>TOPE) h += `<div class="pnote" style="text-align:center;margin:14px 0">Mostrando los ${TOPE} más recientes de ${res.length}. Escribí algo más específico para afinar.</div>`;
     $("content").innerHTML=h; return;
   }
   const porDia = {}; const orden=[];
@@ -258,7 +279,7 @@ function renderMov(c){
   orden.forEach(f=>{
     const items=porDia[f], sub=items.reduce((s,x)=>s+x.monto,0);
     h += `<div class="dayhdr"><span>${etiquetaDia(f)}</span><span>${fmt(sub)}</span></div>`;
-    h += items.map(v=>fila(v.descripcion||v.categoria, v.categoria+" · "+v.medio, v.monto, COLORES[v.categoria]||"#6B8194", v.id, v.id)).join("");
+    h += items.map(v=>filaMov(v,false)).join("");
   });
   $("content").innerHTML=h;
 }

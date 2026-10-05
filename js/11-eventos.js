@@ -53,7 +53,9 @@ poblarFiltroCats();     // idem el de categorías
 $("f-texto").oninput=()=>{ fTexto=$("f-texto").value; render(); };
 $("f-cat").onchange=()=>{ fCat=$("f-cat").value; render(); };
 $("f-medio").onchange=()=>{ fMedio=$("f-medio").value; render(); };
-$("f-clear").onclick=()=>{ fTexto=""; fCat="__todas"; fMedio="__todos"; $("f-texto").value=""; $("f-cat").value="__todas"; $("f-medio").value="__todos"; render(); };
+// Buscar en este mes o en todos los meses (v8.3)
+document.querySelectorAll("#f-alc [data-alc]").forEach(b=>b.onclick=()=>{ fAlc=b.dataset.alc; render(); });
+$("f-clear").onclick=()=>{ fTexto=""; fCat="__todas"; fMedio="__todos"; fAlc="mes"; $("f-texto").value=""; $("f-cat").value="__todas"; $("f-medio").value="__todos"; render(); };
 /* FAB: en Resumen/Movimientos carga un gasto variable (lo de siempre). En Plan abre un
    menú para elegir qué agregar: ingreso, fijo, cuota o presupuesto. */
 function cerrarFabMenu(){ const m=$("fabmenu"); if(m){ m.classList.remove("open"); m.setAttribute("aria-hidden","true"); } $("fab").classList.remove("open"); }
@@ -75,7 +77,7 @@ $("modal").onclick=e=>{ if(e.target.id==="modal") cerrarModal(); };
 $("d-close").onclick=cerrarModalDet;
 $("modalDet").onclick=e=>{ if(e.target.id==="modalDet") cerrarModalDet(); };
 $("d-edit").onclick=()=>{ const id=detId; cerrarModalDet(); abrirModalEdit(id); };
-$("d-del").onclick=()=>{ if(detId && confirm("¿Borrar este gasto?")){ mov=mov.filter(x=>x.id!==detId); persistM(); cerrarModalDet(); render(); } };
+$("d-del").onclick=()=>{ const id=detId; if(!id) return; conDeshacer("Gasto borrado", ()=>{ mov=mov.filter(x=>x.id!==id); persistM(); cerrarModalDet(); render(); }); };
 $("q-monto").addEventListener("keydown",e=>{ if(e.key==="Enter") $("q-add").click(); });
 // Combobox de descripción: al escribir o enfocar se abre/filtra la lista.
 sinAutofillContacto($("q-desc"));   // también acá, para que no aparezca "Autorrellenar contacto"
@@ -125,7 +127,7 @@ $("q-add").onclick=()=>guardarGasto(false);
 $("q-add-otro").onclick=()=>guardarGasto(true);
 $("q-del").onclick=()=>{
   const id=editId; if(!id) return;
-  confirmar("Borrar gasto","Se borra este gasto. No se puede deshacer.",()=>{ mov=mov.filter(x=>x.id!==id); persistM(); cerrarModal(); render(); toast("Gasto borrado"); },"Borrar",true);
+  conDeshacer("Gasto borrado", ()=>{ mov=mov.filter(x=>x.id!==id); persistM(); cerrarModal(); render(); });
 };
 $("q-fecha").addEventListener("change", ()=>{ QA.fechaModo="otro"; pintarQFecha(); });
 $("q-cat").addEventListener("input", ()=>{ QA.catTocada=true; });
