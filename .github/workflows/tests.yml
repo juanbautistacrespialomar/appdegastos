@@ -20,4 +20,4 @@ jobs:
           node-version: "22"
 
       - name: Correr tests
-        run: node --test tests/*.test.js
+        run: node --test test/*.test.js
