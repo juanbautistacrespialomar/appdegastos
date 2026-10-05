@@ -9,7 +9,7 @@
      "versión nueva" del index.html para no quedarse pegado a la copia vieja.
    Para forzar una limpieza total, subí el número de versión del cache (CACHE). */
 
-const CACHE = "mis-gastos-v31";   // v31: Tu Contador 8.0 (paleta nueva, fuentes propias e íconos nuevos)
+const CACHE = "mis-gastos-v32";   // v32: Tu Contador 8.2 (el código pasa a css/ y js/ versionados)
 const ASSETS = [
   "./",
   "./index.html",
@@ -21,13 +21,41 @@ const ASSETS = [
   "./fonts/SplineSansMono-latin.woff2"
 ];
 
-// Instalación: precacheamos los assets base
+/* ===== Archivos de código versionados (css/… y js/…?v=X) =====
+   Desde la 8.2 el código vive en archivos aparte, pedidos con ?v=<versión>. Cuando cambia la
+   versión, cambia la URL: el cache viejo no matchea y se baja el archivo nuevo. Para que la app
+   ande offline apenas se actualiza, cada vez que guardamos un index.html nuevo también bajamos
+   y guardamos los archivos que ese index pide (y borramos las versiones viejas de cada uno). */
+const RE_ASSETS = /(?:src|href)="((?:js|css)\/[^"?]+\?v=[^"]+)"/g;
+async function cachearAssetsDe(htmlText) {
+  const cache = await caches.open(CACHE);
+  const urls = [...String(htmlText).matchAll(RE_ASSETS)].map(m => m[1]);
+  await Promise.all(urls.map(async u => {
+    try {
+      if (await cache.match(u)) return;
+      const res = await fetch(u, { cache: "no-store" });
+      if (res && res.ok) { await cache.put(u, res.clone()); await limpiarVersionesViejas(cache, new URL(u, self.location)); }
+    } catch (err) { /* sin red: se baja cuando se pida */ }
+  }));
+}
+// Borra del cache las otras versiones (?v=) del mismo archivo.
+async function limpiarVersionesViejas(cache, url) {
+  if (!url.searchParams.has("v")) return;
+  const keys = await cache.keys();
+  await Promise.all(keys.map(k => {
+    const ku = new URL(k.url);
+    return (ku.pathname === url.pathname && ku.search !== url.search) ? cache.delete(k) : null;
+  }));
+}
+
+// Instalación: precacheamos los assets base y el código que pide el index actual
 self.addEventListener("install", e => {
-  e.waitUntil(
-    caches.open(CACHE)
-      .then(c => c.addAll(ASSETS))
-      .then(() => self.skipWaiting())   // activa el SW nuevo sin esperar
-  );
+  e.waitUntil((async () => {
+    const c = await caches.open(CACHE);
+    await c.addAll(ASSETS);
+    try { const r = await c.match("./index.html"); if (r) await cachearAssetsDe(await r.text()); } catch (err) {}
+    await self.skipWaiting();   // activa el SW nuevo sin esperar
+  })());
 });
 
 // Activación: borramos caches viejos (versiones anteriores)
@@ -59,8 +87,11 @@ self.addEventListener("fetch", e => {
       caches.match(req).then(cached => {
         const red = fetch(req)
           .then(res => {
-            const copy = res.clone();
-            caches.open(CACHE).then(c => c.put(req, copy)); // refresca para la próxima
+            if (res && res.ok) {
+              const copy = res.clone(), copia2 = res.clone();
+              caches.open(CACHE).then(c => c.put(req, copy)); // refresca para la próxima
+              copia2.text().then(cachearAssetsDe);            // y deja listo su código
+            }
             return res;
           })
           .catch(() => cached || caches.match("./index.html"));
@@ -71,12 +102,16 @@ self.addEventListener("fetch", e => {
     return;
   }
 
-  // Resto → cache-first, con red de respaldo
+  // Resto → cache-first, con red de respaldo.
+  // Solo se guarda lo que vino bien (res.ok): antes un 404 (ej: un archivo que todavía no
+  // subiste) quedaba guardado y seguía fallando aunque después lo subieras.
   e.respondWith(
     caches.match(req).then(cached =>
       cached || fetch(req).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(req, copy));
+        if (res && res.ok && url.origin === self.location.origin) {
+          const copy = res.clone();
+          caches.open(CACHE).then(async c => { await c.put(req, copy); await limpiarVersionesViejas(c, url); });
+        }
         return res;
       }).catch(() => cached)
     )
@@ -95,8 +130,10 @@ self.addEventListener("message", e => {
       const cache = await caches.open(CACHE);
       const fresh = await fetch("./index.html", { cache: "no-store" });
       if (fresh && fresh.ok) {
+        const texto = await fresh.clone().text();
         await cache.put("./index.html", fresh.clone());
         await cache.put("./", fresh);
+        await cachearAssetsDe(texto);   // el código nuevo ya queda guardado antes de recargar
       }
     } catch (err) { /* sin internet: dejamos lo que haya cacheado */ }
     const clients = await self.clients.matchAll({ includeUncontrolled: true });

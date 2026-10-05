@@ -1,6 +1,6 @@
 # Tu Contador 💰
 
-Tu contador personal de gastos, en un solo archivo, instalable en el celular como PWA. Los datos viven **en el dispositivo** (nada de servidores ni bases externas): privacidad total y cero costo de infraestructura.
+Tu contador personal de gastos, instalable en el celular como PWA. Los datos viven **en el dispositivo** (nada de servidores ni bases externas): privacidad total y cero costo de infraestructura.
 
 Te manda recordatorios diarios con humor argentino para que no te olvides de cargar los gastos.
 
@@ -24,7 +24,7 @@ Te manda recordatorios diarios con humor argentino para que no te olvides de car
 
 ## Stack técnico
 
-- **Frontend:** un único `index.html` (HTML + CSS + JS vanilla, sin frameworks ni dependencias).
+- **Frontend:** HTML + CSS + JS vanilla, sin frameworks ni dependencias ni build. `index.html` tiene la estructura; los estilos viven en `css/app.css` y el código en `js/`, separado por tema.
 - **Almacenamiento:** `localStorage`.
 - **Offline / caché:** `sw.js` — service worker con estrategia *stale-while-revalidate* para la navegación y *cache-first* para los assets, con caché versionado y mecanismo de "Actualizar ahora".
 - **Hosting:** GitHub Pages (sitio estático).
@@ -38,16 +38,53 @@ Te manda recordatorios diarios con humor argentino para que no te olvides de car
 ## Estructura del repo
 
 ```
-├── index.html                              # La app entera
-├── sw.js                                   # Service worker (offline + push)
-├── manifest.json                           # Manifest PWA (nombre, íconos, colores)
-├── icon-192.png / icon-512.png             # Íconos de la app
-├── icon-maskable.png                       # Ícono maskable (Android)
-├── .github/workflows/recordatorios.yml     # Cron diario de recordatorios
-└── scripts/recordatorios/
-    ├── enviar-recordatorios.js             # Lógica de envío de push
-    └── package.json
+├── index.html                  # Estructura de la pantalla + APP_VERSION + novedades de cada versión
+├── css/app.css                 # Todos los estilos (paleta, componentes, vistas)
+├── js/                         # El código, en orden de carga (comparten el alcance global)
+│   ├── 01-dominio.js           # Cálculos puros (cuotas, vigencias, saldos, comparativas) → con tests
+│   ├── 02-base.js              # Íconos, guardado en el dispositivo y carga de datos
+│   ├── 03-seguridad.js         # PIN y Face ID
+│   ├── 04-recordatorios.js     # Notificaciones push
+│   ├── 05-ui.js                # Estado de pantalla, formatos, toasts, combos, filtros
+│   ├── 06-resumen-movimientos.js
+│   ├── 07-plan.js              # Plan y paneles de carga de ingresos/fijos/cuotas/presupuestos
+│   ├── 08-ajustes.js
+│   ├── 09-carga-gasto.js       # Panel de carga de gasto variable
+│   ├── 10-exportar.js          # CSV / Excel
+│   ├── 11-eventos.js           # Conexión de botones y eventos
+│   ├── 12-modales.js           # Confirmación y PIN
+│   ├── 13-ios-teclado.js       # Parches de iOS (teclado, zoom, alto visible)
+│   ├── 14-arranque.js          # Pantalla de bloqueo y arranque
+│   ├── 15-actualizacion.js     # Aviso de versión nueva
+│   ├── 16-pwa.js               # Registro del service worker / botón Instalar
+│   └── 17-ios-altura.js        # Alto real en iPhone instalado
+├── fonts/                      # Inter Tight y Spline Sans Mono (licencia OFL)
+├── sw.js                       # Service worker (offline + push + actualización)
+├── manifest.json               # Manifest PWA (nombre, íconos, colores)
+├── icon-192.png / icon-512.png / icon-maskable.png
+├── tests/                      # Tests (node --test, sin instalar nada)
+├── .github/workflows/
+│   ├── tests.yml               # Corre los tests en cada subida
+│   └── recordatorios.yml       # Cron diario de recordatorios
+└── scripts/recordatorios/      # Lógica de envío de push
 ```
+
+---
+
+## Publicar una versión nueva
+
+1. Cambiá `APP_VERSION` en `index.html` **y** el `?v=` de todas las líneas `<script src="js/...">` y del `<link href="css/app.css">` al mismo número. Así el celular baja los archivos nuevos en vez de usar los guardados.
+2. Agregá las novedades de esa versión en el bloque `<script id="novedades">` (arriba de todo, 3 a 5 líneas cortas). El aviso de actualización las muestra antes de actualizar.
+3. Subí los archivos que cambiaste. En la pestaña **Actions** vas a ver correr **Tests - Tu Contador**: si queda en verde, está todo en orden; si queda en rojo, el detalle te dice qué falta (una versión sin actualizar, un archivo sin subir, un cálculo que cambió).
+
+## Tests
+
+```
+node --test tests/*.test.js
+```
+
+- `tests/dominio.test.js` — los cálculos: cuotas (incluida la que "ya venía"), vigencias de fijos e ingresos, saldo del mes, comparación a la misma altura del mes, variación %, proyección de variables, migración de backups viejos y el cache de cálculos.
+- `tests/estructura.test.js` — que versión y `?v=` coincidan, que exista cada archivo que pide `index.html`, que no quede ningún JS sin cargar, que haya novedades para la versión actual, que las rutas del CSS existan y que ningún JS tenga errores de sintaxis.
 
 ---
 
@@ -88,4 +125,4 @@ Toda la información se guarda en `localStorage`, así que es tan frágil como e
 
 ## Versión
 
-La versión actual está definida en la constante `APP_VERSION` dentro de `index.html`.
+La versión actual está definida en la constante `APP_VERSION` dentro de `index.html` (ver *Publicar una versión nueva*).
