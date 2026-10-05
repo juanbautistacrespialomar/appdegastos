@@ -140,3 +140,12 @@ test("cuotas en Plan: primero las que terminan antes; las que no empezaron, al f
   assert.equal(app('finCuota(config.cuotas[3])'), "2026-10");
   assert.deepEqual(app('ordenarCuotas([0,1,2,3], "2026-10").map(i => config.cuotas[i].n)'), ["Última", "Corta", "Larga", "Futura"]);
 });
+
+test("al volver a la app: pasa al mes nuevo solo si estabas mirando el mes en curso", () => {
+  const app = cargarDominio();
+  assert.equal(app('mesAlVolver("2026-10", "2026-10", "2026-11")'), "2026-11"); // se durmió en octubre → noviembre
+  assert.equal(app('mesAlVolver("2026-08", "2026-10", "2026-11")'), "2026-08"); // mirabas agosto a propósito → queda
+  assert.equal(app('mesAlVolver("2026-12", "2026-10", "2026-11")'), "2026-12"); // mirabas un mes futuro → queda
+  assert.equal(app('mesAlVolver("2026-10", "2026-10", "2026-10")'), "2026-10"); // mismo mes → nada
+  assert.equal(app('mesAlVolver("2026-12", "2026-12", "2027-01")'), "2027-01"); // cruce de año
+});
