@@ -154,6 +154,13 @@
   .item .meta { font-size:12px; color:var(--muted); margin-top:2px; }
   .item .amt { font-weight:600; white-space:nowrap; }
   .sub { margin-left:14px; }
+  /* Cuotas por tarjeta: "/mes" al lado del importe y la tira de próximos meses */
+  .cq-per { font-size:11px; font-weight:400; color:var(--muted); margin-left:2px; }
+  .cq-chips { display:flex; gap:6px; overflow-x:auto; margin:-2px 0 8px 14px; padding-bottom:2px; scrollbar-width:none; }
+  .cq-chips::-webkit-scrollbar { display:none; }
+  .cq-chip { flex:0 0 auto; background:var(--card2); border:1px solid var(--border); border-radius:9px; padding:5px 9px; font-size:12px; display:flex; flex-direction:column; line-height:1.3; }
+  .cq-chip b { font-size:10px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .cq-chip.baja { border-color:var(--violet); }
   .fgroup, .fgroup-c, .var-row { cursor:pointer; }
   .var-row:active { border-color:#475569; }
   .del { background:none; border:none; color:#475569; font-size:17px; cursor:pointer; padding:4px; display:inline-flex; align-items:center; justify-content:center; }
@@ -465,7 +472,7 @@ function ic(k, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24
 /* Chevron de colapso: colapsado = apunta a la derecha; abierto = rota 90deg hacia abajo. */
 function chev(colapsado){ return '<svg class="fold-ic'+(colapsado?'':' open')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'; }
 
-const APP_VERSION = "6.34";
+const APP_VERSION = "6.36";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Mis Gastos v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
@@ -1221,33 +1228,75 @@ function renderMov(c){
 }
 
 function renderCuotas(){
-  function bloque(fuente, etiqueta){
-    const items = config.cuotas.filter(q=>q.f===fuente).map(q=>{
-      const k=ymDiff(q.d,mesActivo);
-      if(k<0 || k>(q.t-q.c)) return null;
-      return {q, actual:(q.c+k)+"/"+q.t, rest:(q.t-q.c)-k+1, total:((q.t-q.c)-k+1)*q.m};
-    }).filter(Boolean);
-    if(!items.length) return "";
-    const sub = items.reduce((s,x)=>s+x.total,0);
+  /* Vista de cuotas por tarjeta (v6.35).
+     Antes cada tarjeta mostraba SOLO el total que te queda por pagar (todas las cuotas
+     restantes sumadas). Eso sirve para saber cuánto debés en total, pero no para lo que
+     de verdad te importa todos los meses: cuánto te viene en el resumen de esa tarjeta.
+     Ahora, por tarjeta:
+       - el importe grande es lo que pagás ESTE mes ($/mes),
+       - abajo, en gris, lo que resta en total y hasta cuándo,
+       - al desplegar: cómo va bajando el resumen los próximos meses + cada compra.
+     Las cuotas sin tarjeta cargada van a "Sin tarjeta" (antes sumaban al total de arriba
+     pero no aparecían en ningún bloque, así que los números no cerraban). */
+  const SIN = "__sin";
+  const keyF = q => (q.f && String(q.f).trim()) ? q.f : SIN;
+  // Estado de una cuota en un mes cualquiera: null si no está activa ese mes.
+  // k = meses desde el mes de referencia (q.d); la cuota vive de k=0 a k=(t-c).
+  const estado = (q, ym) => {
+    const k = ymDiff(q.d, ym), ult = (q.t||0)-(q.c||0);
+    if(k<0 || k>ult) return null;
+    const rest = ult-k+1;                         // cuotas que faltan, contando la de este mes
+    return { actual:(q.c+k)+"/"+q.t, rest, total:rest*(q.m||0), fin:ymAdd(q.d, ult) };
+  };
+  const mesCorto = ym => MC[(+ym.split("-")[1])-1]+" "+ym.slice(2,4);
+  const HORIZ = 6;                                // meses a proyectar al desplegar
+
+  function bloque(fuente){
+    const qs = config.cuotas.filter(q=>keyF(q)===fuente);
+    const items = qs.map(q=>{ const e=estado(q,mesActivo); return e?{q,...e}:null; }).filter(Boolean);
+    if(!items.length) return null;
+    const mensual = items.reduce((s,x)=>s+(x.q.m||0),0);
+    const resta   = items.reduce((s,x)=>s+x.total,0);
+    const fin     = items.reduce((mx,x)=>x.fin>mx?x.fin:mx, items[0].fin);   // "AAAA-MM" ordena como texto
+    const etiqueta = fuente===SIN ? "Sin tarjeta" : esc(tarjetaLabel(fuente));
     const col = colCuotas[fuente]!==true;
     let h=`<div class="item fgroup-c" data-card="${esc(fuente)}"><div style="display:flex;align-items:center;gap:10px;min-width:0">
         <span class="bar" style="background:#9D7BFF"></span>
-        <div class="desc">${chev(col)} ${etiqueta} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div></div>
-      <span class="amt">${fmt(sub)}</span></div>`;
-    if(!col) h+= items.map(x=>`<div class="sub">`+fila(x.q.n, "Cuota "+x.actual+` · quedan ${x.rest} ($${fmtN(x.q.m)}/mes)`, x.total, "#9D7BFF")+`</div>`).join("");
-    return h;
+        <div style="min-width:0"><div class="desc">${chev(col)} ${ic('card')} ${etiqueta} <span style="color:var(--muted);font-weight:400">· ${items.length}</span></div>
+        <div class="meta">Resta ${fmt(resta)} · hasta ${mesCorto(fin)}</div></div></div>
+      <span class="amt">${fmt(mensual)}<span class="cq-per">/mes</span></span></div>`;
+    if(!col){
+      // Cómo evoluciona el resumen de ESTA tarjeta: mes a mes, hasta que se termina o el horizonte.
+      const chips=[];
+      for(let i=1;i<=HORIZ;i++){
+        const ym=ymAdd(mesActivo,i);
+        const m=qs.reduce((s,q)=>s+(estado(q,ym)?(q.m||0):0),0);
+        if(m<=0) break;
+        chips.push(`<span class="cq-chip${m<mensual?' baja':''}"><b>${MC[(+ym.split("-")[1])-1]}</b>${fmt(m)}</span>`);
+      }
+      if(chips.length) h+=`<div class="cq-chips">${chips.join("")}</div>`;
+      h+= items.map(x=>`<div class="sub">`+fila(x.q.n||"Sin detalle", "Cuota "+x.actual+" · quedan "+x.rest+" · resta "+fmt(x.total), x.q.m||0, "#9D7BFF")+`</div>`).join("");
+    }
+    return {h, mensual, resta, fin};
   }
-  const totalRest = config.cuotas.reduce((s,q)=>{ const k=ymDiff(q.d,mesActivo); if(k<0||k>(q.t-q.c)) return s; return s+((q.t-q.c)-k+1)*q.m; },0);
-  // Primero las tarjetas base y después CUALQUIER fuente personalizada que tengas cargada
-  // (ej: "Visa BBVA"). Sin esto, las cuotas con tarjeta propia no se mostraban acá.
-  const fuentes = TARJETAS.concat(
-    [...new Set(config.cuotas.map(q=>q.f))].filter(f=>f && !TARJETAS.includes(f))
-  );
-  const cuerpo = fuentes.map(f=>bloque(f, ic('card')+' '+esc(tarjetaLabel(f)))).join("");
+
+  // Orden: tarjetas base, después las personalizadas (ej "Visa BBVA") y al final "Sin tarjeta".
+  const otras = [...new Set(config.cuotas.map(keyF))].filter(f=>f!==SIN && !TARJETAS.includes(f));
+  const fuentes = TARJETAS.concat(otras, [SIN]);
+  const bloques = fuentes.map(bloque).filter(Boolean);
+
+  const totMes  = bloques.reduce((s,b)=>s+b.mensual,0);
+  const totRest = bloques.reduce((s,b)=>s+b.resta,0);
+  const finTot  = bloques.reduce((mx,b)=>(!mx||b.fin>mx)?b.fin:mx, null);
+
   $("content").innerHTML =
-    `<div class="panel" style="padding:12px 14px"><span style="color:var(--muted);font-size:13px">Total comprometido en cuotas (desde ${nombreMes(mesActivo)})</span>
-       <div style="font-size:22px;font-weight:700;color:var(--violet);margin-top:4px">${fmt(totalRest)}</div></div>`
-    + (cuerpo || `<div class="empty">No hay cuotas activas en ${nombreMes(mesActivo)}.</div>`);
+    `<div class="panel" style="padding:12px 14px"><div class="grid">
+       <div><span style="color:var(--muted);font-size:13px">Pagás en ${MESES[(+mesActivo.split("-")[1])-1]}</span>
+         <div style="font-size:22px;font-weight:700;color:var(--violet);margin-top:4px">${fmt(totMes)}</div></div>
+       <div><span style="color:var(--muted);font-size:13px">Total comprometido</span>
+         <div style="font-size:22px;font-weight:700;margin-top:4px">${fmt(totRest)}</div></div>
+     </div>${finTot?`<div style="color:var(--muted);font-size:12px;margin-top:8px">Si no sumás nada nuevo, terminás de pagar en ${nombreMes(finTot)}.</div>`:''}</div>`
+    + (bloques.length ? bloques.map(b=>b.h).join("") : `<div class="empty">No hay cuotas activas en ${nombreMes(mesActivo)}.</div>`);
 }
 
 function renderAjustes(){
@@ -1312,7 +1361,14 @@ function renderAjustes(){
         <button class="del" data-t="delfijo" data-i="${i}" aria-label="Borrar">${ic('trash')}</button></div>
       ${histTxt}</div>`;
   }).join("");
-  const cuotaRows = config.cuotas.map((q,i)=>`<div class="crow">
+  // Cuotas: igual que con los fijos dados de baja, las que ya terminaron de pagarse ANTES del
+  // mes que estás mirando no aparecen acá (v6.36). No se borran: siguen en los datos, así los
+  // meses pasados, la proyección y el backup quedan intactos. Si volvés con las flechas a un
+  // mes en que todavía estaba activa, la ves de nuevo y la podés editar o borrar.
+  // Se compara contra mesActivo (no contra hoy) para mantener la misma lógica que el resto de Ajustes.
+  const cuotaTerminada = q => ymAdd(q.d, Math.max(0,(q.t||0)-(q.c||0))) < mesActivo;   // "AAAA-MM" compara bien como texto
+  const cuotasVisibles = config.cuotas.filter(q=>!cuotaTerminada(q)).length;
+  const cuotaRows = config.cuotas.map((q,i)=> cuotaTerminada(q) ? "" : `<div class="crow">
       <div class="full"><label>Detalle</label><input class="mini" data-t="cuota" data-i="${i}" data-k="n" value="${esc(q.n)}" placeholder="Ej: Heladera, Zapatillas…"></div>
       <div class="full combo"><label>Tarjeta / forma de pago</label><input class="mini" data-t="cuota" data-i="${i}" data-k="f" value="${esc(q.f||'')}" placeholder="Escribí o elegí (ej: Visa Banco Provincia)" autocomplete="off"><div class="combo-list"></div></div>
       <div><label>Mes 1ª cuota</label><div style="display:flex;gap:4px">${mesSel(i,+q.d.split("-")[1])}${anioSel(i,+q.d.split("-")[0])}</div></div>
@@ -1339,7 +1395,7 @@ function renderAjustes(){
        ${ajFold.fijos?'':(fijosRows||'<div class="empty" style="padding:8px">Todavía no cargaste fijos.</div>')}</div>
      <div class="panel">
        <div class="row between fold-aj" data-fold="cuotas" style="cursor:pointer">
-         <p class="ptitle" style="margin:0">${ic('card')} Cuotas <span style="color:var(--muted);font-weight:400">· ${config.cuotas.length}</span></p>
+         <p class="ptitle" style="margin:0">${ic('card')} Cuotas <span style="color:var(--muted);font-weight:400">· ${cuotasVisibles}</span></p>
          ${chev(ajFold.cuotas)}</div>
        <button class="btn btn-ghost" id="add-cuota" style="margin:10px 0 ${ajFold.cuotas?'0':'12px'}">${ic('plus')} Agregar</button>
        ${ajFold.cuotas?'':(cuotaRows||'<div class="empty" style="padding:8px">Todavía no cargaste cuotas.</div>')}</div>
