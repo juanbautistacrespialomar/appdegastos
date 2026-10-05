@@ -54,6 +54,10 @@ html,body { margin:0; background:var(--bg); color:var(--txt); font-family:var(--
    dvh deja al body SIN altura declarada → la .bottomnav (absolute; bottom:0) se ancla al alto
    del contenido y no al de la pantalla. */
 body { height:100vh; height:100dvh; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; position:relative; }
+/* v8.3: el área que scrollea (.wrap) empieza DEBAJO de la franja de la hora/batería.
+   Antes empezaba en el borde de arriba y el contenido pasaba por detrás de esa franja: iOS 26
+   le aplica un difuminado a lo que queda ahí y se veía todo borroso al scrollear. */
+body { padding-top:env(safe-area-inset-top); }
 /* Con black-translucent el texto de la barra de estado (hora/batería) lo pinta iOS en BLANCO,
    por encima del contenido. En modo oscuro se lee bien; en modo claro, sobre fondo claro, sería
    ilegible. Solución: una franja fija del alto EXACTO de la isla (env(safe-area-inset-top)),
@@ -76,7 +80,7 @@ html.no-ios #fab { bottom: calc(90px + max(env(safe-area-inset-bottom), 12px)); 
 /* .wrap ES el scroller de la app: altura = área realmente visible (--vv-h, que se achica cuando
    sube el teclado). Con el body bloqueado, el scroll de todo el contenido pasa por acá, dentro de
    un alto controlado. Por eso scrollIntoView puede centrar bien un campo sin que iOS lo pise. */
-.wrap { width:100%; max-width:600px; box-sizing:border-box; flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; padding:calc(16px + env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom) + 92px + var(--kb,0px)); }
+.wrap { width:100%; max-width:600px; box-sizing:border-box; flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; padding:16px 16px calc(env(safe-area-inset-bottom) + 92px + var(--kb,0px)); }
 .row { display:flex; align-items:center; }
 .between { justify-content:space-between; }
 h1 { font-size:19px; font-weight:800; letter-spacing:-0.02em; margin:0; }
@@ -209,7 +213,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .psbig { font-size:19px; font-weight:700; margin-top:2px; }
 /* ===== v7.1: Plan como lista + bottom sheet de carga ===== */
 .plsec { padding:4px 14px 8px; }
-.plhd { display:flex; justify-content:space-between; align-items:center; min-height:46px; gap:10px; }
+.plhd { display:flex; justify-content:space-between; align-items:center; min-height:50px; gap:10px; cursor:pointer; -webkit-user-select:none; user-select:none; }
+.plhd .fold-ic { width:16px; height:16px; margin-right:6px; vertical-align:-3px; color:var(--muted); }
+.plhd-r { display:flex; align-items:center; gap:10px; }
+.plhd-tot { font-family:var(--mono); letter-spacing:-0.02em; font-weight:600; font-size:14px; white-space:nowrap; }
+.plsec .pladd { width:36px; padding:0; justify-content:center; }
+.plsec .pladd .ic { width:17px; height:17px; }
+.plsec.cerrada { padding-bottom:4px; }
+/* Tarjetas en Cuotas (v8.3): cada una un bloque con su color */
+.tj { border:1px solid var(--border); border-radius:14px; margin:10px 0; overflow:hidden; background:var(--card); }
+.tjhd { display:flex; align-items:center; gap:11px; padding:11px 12px 11px 10px; border-left:4px solid var(--tj); cursor:pointer; background:var(--card2); }
+.tjhd:active { opacity:.75; }
+.tjic { width:36px; height:36px; border-radius:10px; flex:0 0 auto; display:flex; align-items:center; justify-content:center; color:var(--tj); background:var(--card); background:color-mix(in srgb, var(--tj) 20%, transparent); }
+.tjic .ic { width:19px; height:19px; }
+.tjtx { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.tjtx b { font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tjtx small { font-size:12px; color:var(--muted); line-height:1.35; }
+.tjm { font-family:var(--mono); letter-spacing:-0.02em; font-weight:700; font-size:15px; white-space:nowrap; text-align:right; }
+.tjm small { font-family:var(--sans); font-weight:500; font-size:11px; color:var(--muted); margin-left:1px; }
+.tjm em { display:block; font-style:normal; font-family:var(--sans); font-weight:500; font-size:12px; color:var(--muted); letter-spacing:0; margin-top:2px; }
+.tjhd .fold-ic { width:16px; height:16px; color:var(--muted); flex:0 0 auto; }
+.tjbody { border-left:4px solid var(--tj); padding:8px 12px 2px 12px; }
+.tjbody .plrow:first-of-type { border-top:none; }
+.tjbody .plprog span.on { background:var(--tj); }
 .pltit { font-weight:600; font-size:14px; }
 .pltit span { color:var(--muted); font-weight:400; }
 .pladd { background:var(--card); border:1px solid var(--border2); color:var(--txt); border-radius:10px; height:36px; padding:0 12px; font:inherit; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
@@ -263,6 +289,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .sh-save { width:100%; height:50px; border-radius:12px; font-size:16px; font-weight:700; }
 .sh-del { width:100%; height:46px; background:none; border:none; color:var(--red); font:inherit; font-size:14.5px; font-weight:600; margin-top:6px; cursor:pointer; }
 .sh-hist { font-size:12.5px; color:var(--muted); border-top:1px solid var(--border); padding-top:10px; margin-bottom:14px; line-height:1.7; font-variant-numeric:tabular-nums; }
+/* Movimientos: "Este mes / Todos los meses" (v8.3) */
+.segctl { display:grid; grid-template-columns:1fr 1fr; background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:3px; gap:3px; }
+.segctl button { height:38px; border-radius:9px; border:none; background:none; color:var(--muted); font:inherit; font-size:14px; font-weight:500; cursor:pointer; }
+.segctl button.on { background:var(--card); color:var(--txt); font-weight:700; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+.meshdr { display:flex; justify-content:space-between; align-items:baseline; margin:18px 2px 6px; padding-bottom:6px; border-bottom:1px solid var(--border); font-size:14px; font-weight:700; }
+.meshdr > span:last-child { font-family:var(--mono); letter-spacing:-0.02em; font-weight:600; }
 /* Aviso de versión nueva (v8.1) */
 .upd-hd { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
 .upd-hd strong { display:block; font-size:17px; font-weight:700; }
@@ -385,6 +417,9 @@ html:has(.modal-bg.open), body:has(.modal-bg.open) { overflow:hidden; }
 .modal-bg.alert .modal { border-radius:16px; max-width:400px; max-height:100%; padding-bottom:16px; }
 .toast{ position:fixed; left:50%; bottom:calc(94px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(16px); max-width:88%; display:flex; align-items:center; gap:10px; background:var(--card2); color:var(--txt); border:1px solid var(--border2); padding:10px 16px 10px 10px; border-radius:12px; font-size:14px; font-weight:600; box-shadow:var(--shadow-2); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:80; }
 .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+.toast.undo{ padding:6px 8px 6px 16px; gap:14px; }
+.toast .tundo{ background:none; border:none; color:var(--acc-ink); font:inherit; font-weight:700; font-size:14px; min-height:36px; padding:0 8px; border-radius:8px; cursor:pointer; }
+.toast .tundo:active{ background:var(--acc-bg); }
 .toast .tic{ width:24px; height:24px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
 .toast .tic .ic{ width:14px; height:14px; stroke-width:2.6; }
 .toast.ok .tic{ background:var(--pos-bg); color:var(--green); }
