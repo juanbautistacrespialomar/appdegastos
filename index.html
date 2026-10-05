@@ -17,6 +17,23 @@
 <meta name="apple-mobile-web-app-title" content="Tu Contador">
 <link rel="apple-touch-icon" href="icon-512.png">
 <link rel="manifest" href="manifest.json">
+<!-- Novedades de cada versión: el aviso de actualización las lee del index NUEVO.
+     Para la próxima versión, agregá su entrada arriba de todo (máximo 4 o 5 líneas cortas). -->
+<script type="application/json" id="novedades">
+{
+  "8.1": [
+    "Cargar un gasto es mucho más rápido: categoría, medio de pago y día con un toque.",
+    "Si elegís una descripción que ya usaste, completa sola la categoría y el medio.",
+    "Nuevo «Agregar y cargar otro» para cargar varios gastos seguidos.",
+    "En iPhone, los paneles ya no se meten debajo de la barra de arriba.",
+    "Este aviso ahora te cuenta qué trae cada versión."
+  ],
+  "8.0": [
+    "Nueva paleta de colores, tipografía e íconos.",
+    "Nuevo ícono y nombre unificado: Tu Contador."
+  ]
+}
+</script>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   /* ===== Sistema de diseño v8.0 (paleta tomada de Prince Collections) =====
@@ -74,7 +91,7 @@
      ilegible. Solución: una franja fija del alto EXACTO de la isla (env(safe-area-inset-top)),
      siempre oscura, en ambos temas. Así el blanco de iOS siempre cae sobre oscuro. Si el celu no
      tiene isla, env vale 0 → la franja no ocupa nada. */
-  .statusbar-bg { position:fixed; top:0; left:0; right:0; height:env(safe-area-inset-top); background:#0f141b; z-index:55; pointer-events:none; }
+  .statusbar-bg { position:fixed; top:0; left:0; right:0; height:env(safe-area-inset-top); background:var(--bg); z-index:55; pointer-events:none; }
   /* En el NAVEGADOR: 100dvh (respeta el toolbar de Safari, la barra queda arriba de él).
      En modo INSTALADO (html.sa): el webview es full-screen pero 100dvh queda corto y la barra
      flota. Forzamos el alto real medido por JS (window.innerHeight) para que el body llene toda
@@ -245,6 +262,8 @@
   .plgrp > span:first-child { display:flex; align-items:center; gap:4px; color:var(--txt); font-weight:600; min-width:0; }
   .plempty { font-size:13px; color:var(--muted); border-top:1px solid var(--border); padding:12px 0 6px; line-height:1.45; }
   .sheet { padding-top:6px; }
+  /* El encabezado del sheet (Cancelar · título) queda fijo arriba mientras scrolleás el formulario */
+  .sheet > .sh-hd { position:sticky; top:-6px; z-index:3; background:var(--card); margin:-6px -16px 8px; padding:6px 16px 2px; }
   .sh-hd { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
   .sh-x { background:none; border:none; color:var(--acc-ink); font-weight:600; font:inherit; font-size:15px; height:44px; padding:0; min-width:70px; text-align:left; cursor:pointer; }
   .sh-t { font-weight:700; font-size:16px; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -276,6 +295,23 @@
   .sh-save { width:100%; height:50px; border-radius:12px; font-size:16px; font-weight:700; }
   .sh-del { width:100%; height:46px; background:none; border:none; color:var(--red); font:inherit; font-size:14.5px; font-weight:600; margin-top:6px; cursor:pointer; }
   .sh-hist { font-size:12.5px; color:var(--muted); border-top:1px solid var(--border); padding-top:10px; margin-bottom:14px; line-height:1.7; font-variant-numeric:tabular-nums; }
+  /* Aviso de versión nueva (v8.1) */
+  .upd-hd { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  .upd-hd strong { display:block; font-size:17px; font-weight:700; }
+  .upd-ver { display:block; font-size:13px; color:var(--muted); margin-top:2px; font-family:var(--mono); letter-spacing:-0.02em; }
+  .upd-ver b { color:var(--acc-ink); font-weight:600; }
+  .upd-sub { font-size:13px; color:var(--muted); margin:0 0 8px; }
+  .upd-list { list-style:none; padding:0; margin:0 0 18px; display:flex; flex-direction:column; gap:10px; }
+  .upd-list li { display:flex; gap:10px; font-size:14px; line-height:1.45; }
+  .upd-list li .ic { width:16px; height:16px; color:var(--green); stroke-width:2.6; margin-top:2px; }
+  .upd-btns { display:grid; grid-template-columns:1fr 1.4fr; gap:8px; }
+  .upd-btns.solo { grid-template-columns:1fr; }
+  .upd-foot { font-size:12px; color:var(--muted); margin:10px 0 0; text-align:center; }
+  /* Carga de gasto variable (v8.1) */
+  .q-otro { width:100%; text-align:center; padding:12px 0 2px; font-weight:600; font-size:14px; }
+  .q-hint { font-size:12.5px; color:var(--acc-ink); min-height:0; }
+  .q-hint:empty { display:none; }
+  .chip .sq { width:8px; height:8px; border-radius:2px; flex:0 0 auto; }
   /* Menú del + en Plan: elegís qué agregar */
   .fabmenu { position:absolute; right:18px; bottom:calc(156px + env(safe-area-inset-bottom)); z-index:52; display:flex; flex-direction:column; align-items:flex-end; gap:8px; pointer-events:none; opacity:0; transform:translateY(8px); transition:opacity .18s ease, transform .18s ease; }
   html.no-ios .fabmenu { bottom: calc(156px + max(env(safe-area-inset-bottom), 12px)); }
@@ -366,7 +402,7 @@
   .modal-bg.open { display:flex; }
   /* padding-bottom = 16px + safe-area: sin esto, el último renglón del sheet queda DEBAJO del
      home indicator del iPhone (parece cortado). Aplica a todos los bottom sheets. */
-  .modal { background:var(--card); border:1px solid var(--border); border-radius:16px 16px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); width:100%; max-width:600px; max-height:calc(100% - 16px); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+  .modal { background:var(--card); border:1px solid var(--border); border-radius:20px 20px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); width:100%; max-width:600px; max-height:calc(100% - env(safe-area-inset-top) - 12px); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
   /* Mientras hay un modal abierto, el fondo no scrollea (se mueve el cartel, no la pantalla de atrás) */
   html:has(.modal-bg.open), body:has(.modal-bg.open) { overflow:hidden; }
   @media(min-width:600px){ .modal-bg{ align-items:center; } .modal{ border-radius:16px; } }
@@ -493,25 +529,25 @@
 </div>
 
 <div id="modal" class="modal-bg">
-  <div class="modal">
-    <div class="row between" style="margin-bottom:10px"><strong id="m-title">Nuevo gasto variable</strong><button id="m-close" class="del" aria-label="Cerrar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
-    <div class="grid">
-      <input class="full js-money" type="text" inputmode="decimal" id="q-monto" placeholder="Monto ($)  ej: 1234,50">
-      <div class="combo" id="q-cat-wrap">
-        <input type="text" id="q-cat" placeholder="Categoría — escribí o elegí" autocomplete="off">
-        <div class="combo-list" id="q-cat-list"></div>
-      </div>
-      <div class="combo" id="q-medio-wrap">
-        <input type="text" id="q-medio" placeholder="Forma de pago — escribí o elegí" autocomplete="off">
-        <div class="combo-list" id="q-medio-list"></div>
-      </div>
-      <input type="date" id="q-fecha">
-      <div class="combo full" id="q-desc-wrap">
-        <input type="text" id="q-desc" placeholder="Descripción — escribí y elegí de la lista" autocomplete="off">
-        <div class="combo-list" id="q-desc-list"></div>
-      </div>
-      <button class="btn btn-add full" id="q-add"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar</button>
-    </div>
+  <div class="modal sheet" id="q-body">
+    <div class="sh-hd"><button type="button" class="sh-x" id="m-close">Cancelar</button><span class="sh-t" id="m-title">Nuevo gasto</span><span style="min-width:70px"></span></div>
+    <div class="sh-f"><label class="sh-l" for="q-monto">¿Cuánto?</label>
+      <input class="js-money sh-big" type="text" inputmode="decimal" id="q-monto" placeholder="$ 0" autocomplete="off"></div>
+    <div class="sh-f"><span class="sh-l">¿En qué?</span>
+      <div class="chips" id="q-cat-chips"></div>
+      <div class="combo" id="q-cat-wrap" style="display:none"><input type="text" id="q-cat" placeholder="Buscá o escribí una categoría nueva" autocomplete="off"><div class="combo-list" id="q-cat-list"></div></div></div>
+    <div class="sh-f"><label class="sh-l" for="q-desc">Descripción <span style="opacity:.7">(opcional)</span></label>
+      <div class="combo" id="q-desc-wrap"><input type="text" id="q-desc" placeholder="Ej: súper, nafta, almuerzo…" autocomplete="off"><div class="combo-list" id="q-desc-list"></div></div>
+      <span class="q-hint" id="q-hint"></span></div>
+    <div class="sh-f"><span class="sh-l">¿Cómo pagaste?</span>
+      <div class="chips" id="q-medio-chips"></div>
+      <div class="combo" id="q-medio-wrap" style="display:none"><input type="text" id="q-medio" placeholder="Ej: Visa Banco Provincia" autocomplete="off"><div class="combo-list" id="q-medio-list"></div></div></div>
+    <div class="sh-f"><span class="sh-l">¿Cuándo?</span>
+      <div class="chips g3" id="q-fecha-chips"></div>
+      <input type="date" id="q-fecha" style="display:none"></div>
+    <button class="btn btn-add sh-save" id="q-add" type="button"></button>
+    <button class="sh-link q-otro" id="q-add-otro" type="button">Agregar y cargar otro</button>
+    <button class="sh-del" id="q-del" type="button" style="display:none">Borrar este gasto</button>
   </div>
 </div>
 
@@ -532,14 +568,18 @@
 
 <!-- Aviso de versión nueva (pedido 1) -->
 <div id="modalUpd" class="modal-bg alert">
-  <div class="modal">
-    <div class="row between" style="margin-bottom:10px"><strong style="display:flex;align-items:center;gap:7px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--sky)"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z"/></svg> Nueva versión disponible</strong></div>
-    <p id="upd-msg" style="color:var(--txt);font-size:14px;line-height:1.5;margin:0 0 16px"></p>
-    <div class="grid">
-      <button class="btn btn-ghost" id="upd-later">Más tarde</button>
-      <button class="btn btn-add" id="upd-now">⟳ Actualizar ahora</button>
+  <div class="modal upd">
+    <div class="upd-hd">
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>
+      <div><strong id="upd-title">Hay una versión nueva</strong><span class="upd-ver" id="upd-ver"></span></div>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin:10px 0 0">La app se reinicia sola. Tus datos quedan intactos.</p>
+    <p class="upd-sub" id="upd-sub">Esto trae:</p>
+    <ul class="upd-list" id="upd-list"></ul>
+    <div class="upd-btns" id="upd-btns">
+      <button class="btn btn-ghost" id="upd-later" type="button">Ahora no</button>
+      <button class="btn btn-add" id="upd-now" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg> Actualizar</button>
+    </div>
+    <p class="upd-foot" id="upd-foot">Tarda un segundo. Tus datos no se tocan.</p>
   </div>
 </div>
 
@@ -597,6 +637,7 @@
    Estilo calcado del #eyeBtn original (Feather): viewBox 24x24, stroke, sin fill.
    El color NO se define aca: sale de currentColor del contenedor.            */
 const ICONS = {
+  sync:   '<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>',
   chevL:  '<path d="M15 18l-6-6 6-6"/>',
   chevR:  '<path d="M9 18l6-6-6-6"/>',
   arrUp:  '<path d="M7 17L17 7M9 7h8v8"/>',
@@ -635,7 +676,7 @@ function ic(k, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24
 /* Chevron de colapso: colapsado = apunta a la derecha; abierto = rota 90deg hacia abajo. */
 function chev(colapsado){ return '<svg class="fold-ic'+(colapsado?'':' open')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'; }
 
-const APP_VERSION = "8.0";
+const APP_VERSION = "8.1";
 try{ const _fv=document.getElementById("footVer"); if(_fv) _fv.textContent="Tu Contador v"+APP_VERSION+" · tus datos se guardan en este dispositivo."; }catch(e){}
 const CATS = ["Comida","Transporte","Salidas/Comidas","Hogar","Mantenimiento","Servicios","Suscripciones","Salud","Cuidado personal","Ocio","Educación","Ropa","Viajes","Mascotas","Regalos","Gimnasio","Tecnología","Niños","Impuestos","Alquiler","Cuotas","Otros"];
 const MEDIOS = ["Efectivo","Débito","Crédito","Transferencia","MercadoPago"];
@@ -956,7 +997,7 @@ function toast(msg, onClick, tipo){
   msg = String(msg);
   const ok = /✓\s*$/.test(msg);
   msg = msg.replace(/\s*✓\s*$/,"");
-  const clase = tipo==="error" ? "err" : ok ? "ok" : "info";
+  const clase = tipo==="error" ? "err" : (ok || tipo==="ok") ? "ok" : "info";
   t.className = "toast " + clase;
   t.innerHTML = (clase==="info" ? "" : `<span class="tic">${ic(clase==="err"?"alert":"check")}</span>`) + `<span></span>`;
   t.lastChild.textContent = msg;
@@ -2038,24 +2079,96 @@ function focoSinSalto(el){
   catch(e){ el.focus(); }
 }
 
-function abrirModalAlta(){
-  editId=null; $("m-title").textContent="Nuevo gasto variable";
-  $("q-monto").value=""; $("q-desc").value=""; $("q-cat").value=""; $("q-medio").value="Efectivo"; $("q-fecha").value=hoy();
-  $("q-add").innerHTML=ic('plus')+" Agregar";   // textContent escaparia el SVG
+/* ===== Carga de gasto variable (v8.1) =====
+   Antes: cinco campos de texto (monto, categoría, medio, fecha, descripción) y había que
+   tipear o abrir listas para todo. Ahora, igual que en Plan:
+   - Categoría, medio de pago y día se eligen con UN toque (las categorías y medios que más
+     usás aparecen primero; "Más…" / "Otro" abre el buscador para lo demás).
+   - El medio arranca en el último que usaste, no siempre en "Efectivo".
+   - Si elegís una descripción que ya usaste, completa sola la categoría y el medio de la
+     última vez (si todavía no los tocaste).
+   - "Agregar y cargar otro" guarda y deja el formulario listo para el siguiente.
+   Los campos #q-cat / #q-medio / #q-fecha siguen existiendo (ahora ocultos detrás de los
+   chips): el guardado lee de ahí, igual que siempre. */
+const CAT_RAPIDAS=["Comida","Transporte","Salidas/Comidas","Hogar","Salud","Ocio","Ropa"];
+const QA={catMas:false, medioOtro:false, catTocada:false, medioTocado:false, fechaModo:"hoy"};
+const ayer = () => { const d=new Date(); d.setDate(d.getDate()-1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+function catsFrecuentes(){
+  const desde=ymAdd(ymNow(),-4), cont={};
+  mov.forEach(m=>{ if((m.fecha||"").slice(0,7)>=desde && m.categoria) cont[m.categoria]=(cont[m.categoria]||0)+1; });
+  const top=Object.keys(cont).sort((a,b)=>cont[b]-cont[a]);
+  CAT_RAPIDAS.forEach(c=>{ if(!top.includes(c)) top.push(c); });
+  return top;
+}
+function pintarQCats(){
+  const cur=$("q-cat").value.trim();
+  let lista=catsFrecuentes().slice(0,7);
+  if(cur && !lista.includes(cur)) lista=[cur, ...lista.slice(0,6)];
+  $("q-cat-chips").innerHTML = lista.map(c=>`<button type="button" class="chip${!QA.catMas&&c===cur?' on':''}" data-qc="${esc(c)}"><span class="sq" style="background:${COLORES[c]||'var(--muted)'}"></span>${esc(c)}</button>`).join("")
+    + `<button type="button" class="chip${QA.catMas?' on':''}" data-qc-mas="1">Más…</button>`;
+  $("q-cat-wrap").style.display = QA.catMas ? "" : "none";
+  $("q-cat-chips").querySelectorAll("[data-qc]").forEach(b=>b.onclick=()=>{ $("q-cat").value=b.dataset.qc; QA.catMas=false; QA.catTocada=true; pintarQCats(); });
+  $("q-cat-chips").querySelector("[data-qc-mas]").onclick=()=>{ QA.catMas=!QA.catMas; QA.catTocada=true; if(QA.catMas){ $("q-cat").value=""; } pintarQCats(); if(QA.catMas) focoSinSalto($("q-cat")); };
+}
+function pintarQMedios(){
+  const cur=$("q-medio").value.trim();
+  let lista=formasDePago().slice(0,5);
+  if(cur && !lista.includes(cur)) lista=[cur, ...lista.slice(0,4)];
+  $("q-medio-chips").innerHTML = lista.map(m=>`<button type="button" class="chip${!QA.medioOtro&&m===cur?' on':''}" data-qm="${esc(m)}">${esc(tarjetaLabel(m))}</button>`).join("")
+    + `<button type="button" class="chip${QA.medioOtro?' on':''}" data-qm-otro="1">${ic('plus')}Otro</button>`;
+  $("q-medio-wrap").style.display = QA.medioOtro ? "" : "none";
+  $("q-medio-chips").querySelectorAll("[data-qm]").forEach(b=>b.onclick=()=>{ $("q-medio").value=b.dataset.qm; QA.medioOtro=false; QA.medioTocado=true; pintarQMedios(); });
+  $("q-medio-chips").querySelector("[data-qm-otro]").onclick=()=>{ QA.medioOtro=!QA.medioOtro; QA.medioTocado=true; if(QA.medioOtro){ $("q-medio").value=""; } pintarQMedios(); if(QA.medioOtro) focoSinSalto($("q-medio")); };
+}
+function pintarQFecha(){
+  const f=$("q-fecha").value;
+  QA.fechaModo = QA.fechaModo==="otro" ? "otro" : (f===hoy() ? "hoy" : f===ayer() ? "ayer" : "otro");
+  const ops=[["hoy","Hoy"],["ayer","Ayer"],["otro", QA.fechaModo==="otro" && f ? (+f.slice(8,10))+" "+MC[+f.slice(5,7)-1].toLowerCase() : "Otro día"]];
+  $("q-fecha-chips").innerHTML = ops.map(([k,l])=>`<button type="button" class="chip${QA.fechaModo===k?' on':''}" data-qf="${k}">${l}</button>`).join("");
+  $("q-fecha").style.display = QA.fechaModo==="otro" ? "" : "none";
+  $("q-fecha-chips").querySelectorAll("[data-qf]").forEach(b=>b.onclick=()=>{
+    QA.fechaModo=b.dataset.qf;
+    if(QA.fechaModo==="hoy") $("q-fecha").value=hoy();
+    else if(QA.fechaModo==="ayer") $("q-fecha").value=ayer();
+    pintarQFecha();
+    if(QA.fechaModo==="otro"){ try{ $("q-fecha").showPicker(); }catch(e){ $("q-fecha").focus(); } }
+  });
+}
+// Elegiste una descripción que ya usaste → completamos categoría y medio como la última vez
+// (solo los que todavía no tocaste en este formulario).
+function autocompletarDesdeDescripcion(desc){
+  const d=normD(desc); if(!d) return;
+  const prev=mov.find(m=>m.id!==editId && normD(m.descripcion)===d); if(!prev) return;
+  const hechos=[];
+  if(!QA.catTocada && prev.categoria){ $("q-cat").value=prev.categoria; QA.catMas=false; hechos.push("categoría"); pintarQCats(); }
+  if(!QA.medioTocado && prev.medio && prev.medio!=="—"){ $("q-medio").value=prev.medio; QA.medioOtro=false; hechos.push("medio de pago"); pintarQMedios(); }
+  $("q-hint").textContent = hechos.length ? "Completé "+hechos.join(" y ")+" como la última vez." : "";
+}
+function prepararModalGasto(v){
+  QA.catMas=false; QA.medioOtro=false; QA.catTocada=!!v; QA.medioTocado=!!v; QA.fechaModo="hoy";
+  const ultMedio=(mov.find(m=>m.medio && m.medio!=="—")||{}).medio || "Efectivo";
+  $("q-monto").value = v ? numADisplay(v.monto) : "";
+  $("q-cat").value   = v ? (v.categoria||"") : "";
+  $("q-medio").value = v ? (v.medio||"") : ultMedio;
+  $("q-fecha").value = v ? v.fecha : hoy();
+  $("q-desc").value  = v ? (v.descripcion||"") : "";
+  $("q-hint").textContent="";
+  $("m-title").textContent = v ? "Editar gasto" : "Nuevo gasto";
+  $("q-add").innerHTML = v ? ic('check')+" Guardar cambios" : ic('plus')+" Agregar";
+  $("q-add-otro").style.display = v ? "none" : "";
+  $("q-del").style.display = v ? "" : "none";
   poblarSugerencias(); cerrarDescList();
+  pintarQCats(); pintarQMedios(); pintarQFecha();
+  $("q-body").scrollTop=0;
+}
+function abrirModalAlta(){
+  editId=null; prepararModalGasto(null);
   $("modal").classList.add("open"); focoSinSalto($("q-monto"));
 }
 function abrirModalEdit(id){
   const v=mov.find(x=>x.id===id); if(!v) return;
-  editId=id; $("m-title").textContent="Editar gasto";
-  $("q-monto").value=numADisplay(v.monto);
-  $("q-cat").value=v.categoria;
-  $("q-medio").value=v.medio||"";
-  $("q-fecha").value=v.fecha;
-  $("q-desc").value=v.descripcion||"";
-  $("q-add").innerHTML=ic('check')+" Guardar cambios";
-  poblarSugerencias(); cerrarDescList();
-  $("modal").classList.add("open"); focoSinSalto($("q-monto"));
+  editId=id; prepararModalGasto(v);
+  $("modal").classList.add("open");
 }
 function cerrarModal(){ $("modal").classList.remove("open"); editId=null; cerrarDescList(); }
 
@@ -2233,23 +2346,47 @@ $("q-desc-list").addEventListener("mousedown", e=>{
   e.preventDefault();
   $("q-desc").value=opt.textContent;
   cerrarDescList();
+  autocompletarDesdeDescripcion(opt.textContent);
 });
+$("q-desc").addEventListener("change", ()=>autocompletarDesdeDescripcion($("q-desc").value));
 // Tocar fuera del combo lo cierra (si no hay parecidos, queda lo que escribiste).
 document.addEventListener("mousedown", e=>{ if(!e.target.closest("#q-desc-wrap")) cerrarDescList(); });
-$("q-add").onclick=()=>{
+function guardarGasto(otro){
   const monto=parseMonto($("q-monto").value);
-  if(!monto||monto<=0){ $("q-monto").focus(); return; }
+  if(!monto||monto<=0){ toast("Poné cuánto gastaste", null, "error"); focoSinSalto($("q-monto")); return; }
+  const cat=$("q-cat").value.trim();
+  if(!cat){ toast("Elegí en qué gastaste", null, "error"); return; }
   const desc=$("q-desc").value.trim();
   const medio=$("q-medio").value.trim() || "Efectivo";
-  const cat=$("q-cat").value.trim() || "Otros";   // fallback: si quedó vacía, va a "Otros" (mismo criterio que el medio → "Efectivo")
+  const fecha=$("q-fecha").value||hoy();
   if(editId){
     const v=mov.find(x=>x.id===editId);
-    if(v){ v.monto=monto; v.categoria=cat; v.medio=medio; v.fecha=$("q-fecha").value||hoy(); v.descripcion=desc; }
+    if(v){ v.monto=monto; v.categoria=cat; v.medio=medio; v.fecha=fecha; v.descripcion=desc; }
   } else {
-    mov.unshift({id:Date.now()+"_"+Math.random().toString(36).slice(2,6), monto, categoria:cat, fecha:$("q-fecha").value||hoy(), descripcion:desc, medio:medio});
+    mov.unshift({id:Date.now()+"_"+Math.random().toString(36).slice(2,6), monto, categoria:cat, fecha, descripcion:desc, medio});
   }
-  persistM(); cerrarModal(); vista="mov"; render();
+  persistM();
+  if(otro){
+    // Queda abierto: conserva medio y día (lo típico al cargar varios del mismo día) y
+    // limpia monto, categoría y descripción para el siguiente.
+    $("q-monto").value=""; $("q-desc").value=""; $("q-cat").value=""; $("q-hint").textContent="";
+    QA.catMas=false; QA.catTocada=false;
+    pintarQCats(); render(); toast("Gasto agregado ✓");
+    focoSinSalto($("q-monto"));
+    return;
+  }
+  const eraEdicion=!!editId;
+  cerrarModal(); vista="mov"; render(); toast(eraEdicion?"Cambios guardados ✓":"Gasto agregado ✓");
+}
+$("q-add").onclick=()=>guardarGasto(false);
+$("q-add-otro").onclick=()=>guardarGasto(true);
+$("q-del").onclick=()=>{
+  const id=editId; if(!id) return;
+  confirmar("Borrar gasto","Se borra este gasto. No se puede deshacer.",()=>{ mov=mov.filter(x=>x.id!==id); persistM(); cerrarModal(); render(); toast("Gasto borrado"); },"Borrar",true);
 };
+$("q-fecha").addEventListener("change", ()=>{ QA.fechaModo="otro"; pintarQFecha(); });
+$("q-cat").addEventListener("input", ()=>{ QA.catTocada=true; });
+$("q-medio").addEventListener("input", ()=>{ QA.medioTocado=true; });
 
 /* ===== Modal de confirmación reutilizable (pedido 6) ===== */
 let _cfOk=null;
@@ -2466,6 +2603,47 @@ iniciarApp();
    Como el Service Worker abre desde cache (rápido), en segundo plano chequeamos contra
    la red si subiste una versión más nueva. Si la hay, te aparece un CARTEL (modal) con
    botón "Actualizar ahora". Si no hay internet, no molesta. */
+/* Novedades: viven en el <script id="novedades"> de cada versión. Cuando hay una versión
+   nueva, las leemos del index.html NUEVO (el que bajamos de la red), así el cartel te cuenta
+   qué trae antes de actualizar. Para la próxima versión: agregá su entrada arriba de todo. */
+let _updPospuesto=false;
+function leerNovedades(html){
+  try{
+    const mm = String(html).match(/<script type="application\/json" id="novedades">([\s\S]*?)<\/script>/);
+    return mm ? JSON.parse(mm[1]) : {};
+  }catch(e){ return {}; }
+}
+function pintarListaNovedades(items){
+  const lista = (items && items.length) ? items : ["Mejoras y arreglos menores."];
+  $("upd-list").innerHTML = lista.map(t=>`<li>${ic('check')}<span>${esc(t)}</span></li>`).join("");
+}
+function mostrarAvisoVersion(nueva, nov){
+  $("upd-title").textContent = "Hay una versión nueva";
+  $("upd-ver").innerHTML = (nueva && nueva!==APP_VERSION) ? `${esc(APP_VERSION)} → <b>${esc(nueva)}</b>` : "Ajustes menores";
+  $("upd-sub").textContent = "Esto trae:";
+  pintarListaNovedades(nueva ? nov[nueva] : null);
+  $("upd-btns").classList.remove("solo"); $("upd-later").style.display=""; $("upd-foot").style.display="";
+  const b=$("upd-now"); b.disabled=false; b.innerHTML=ic('sync')+" Actualizar"; b.onclick=aplicarUpdate;
+  $("modalUpd").classList.add("open");
+}
+// Después de actualizar: un aviso corto, y si lo tocás, te muestra qué cambió.
+function mostrarNovedadesLocales(){
+  let nov={}; try{ nov=JSON.parse(($("novedades")||{}).textContent||"{}"); }catch(e){}
+  $("upd-title").textContent = "Novedades";
+  $("upd-ver").innerHTML = `Versión <b>${esc(APP_VERSION)}</b>`;
+  $("upd-sub").textContent = "Lo que cambió:";
+  pintarListaNovedades(nov[APP_VERSION]);
+  $("upd-btns").classList.add("solo"); $("upd-later").style.display="none"; $("upd-foot").style.display="none";
+  const b=$("upd-now"); b.disabled=false; b.innerHTML=ic('check')+" Listo"; b.onclick=()=>$("modalUpd").classList.remove("open");
+  $("modalUpd").classList.add("open");
+}
+(function avisarSiSeActualizo(){
+  try{
+    const ant=localStorage.getItem("mg_ver");
+    localStorage.setItem("mg_ver", APP_VERSION);
+    if(ant && ant!==APP_VERSION) setTimeout(()=>toast("Ya tenés la "+APP_VERSION+". Tocá para ver qué cambió", mostrarNovedadesLocales, "ok"), 900);
+  }catch(e){}
+})();
 async function chequearUpdate(){
   try{
     const res = await fetch("./index.html?freshcheck="+Date.now(), {cache:"no-store"});
@@ -2486,11 +2664,12 @@ async function chequearUpdate(){
       hayNueva = !!(mm && mm[1] !== APP_VERSION);
     }
     if(!hayNueva) return;
-
+    // No interrumpir: si estás cargando algo (cualquier modal abierto) o ya dijiste "Ahora no"
+    // en esta sesión, esperamos. Se vuelve a chequear al volver a abrir la app.
+    if(_updPospuesto || document.querySelector(".modal-bg.open")) return;
     const m = red.match(/APP_VERSION\s*=\s*"([^"]+)"/);
-    const vTxt = (m && m[1] !== APP_VERSION) ? (" ("+m[1]+")") : "";
-    $("upd-msg").textContent = "Hay una versión nueva"+vTxt+" lista. Estás usando la "+APP_VERSION+".";
-    $("modalUpd").classList.add("open");
+    const nueva = m ? m[1] : null;
+    mostrarAvisoVersion(nueva, leerNovedades(red));
   }catch(e){ /* sin conexión: lo dejamos pasar */ }
 }
 
@@ -2541,7 +2720,7 @@ async function borrarCacheHTML(){
   }catch(e){}
 }
 function aplicarUpdate(){
-  $("upd-now").textContent="Actualizando…"; $("upd-now").disabled=true;
+  $("upd-now").innerHTML=ic('sync')+" Actualizando…"; $("upd-now").disabled=true;
   let hecho=false;
   const recargar=()=>{ if(hecho) return; hecho=true; location.reload(); };
   const sw = navigator.serviceWorker;
@@ -2554,8 +2733,8 @@ function aplicarUpdate(){
     borrarCacheHTML().finally(recargar);
   }
 }
-$("upd-later").onclick=()=>$("modalUpd").classList.remove("open");
-$("upd-now").onclick=aplicarUpdate;
+$("upd-later").onclick=()=>{ _updPospuesto=true; $("modalUpd").classList.remove("open"); };
+$("upd-now").onclick=aplicarUpdate;   // (mostrarAvisoVersion / mostrarNovedadesLocales lo reasignan según el modo)
 $("modalUpd").onclick=e=>{ if(e.target.id==="modalUpd") $("modalUpd").classList.remove("open"); };
 $("invite-no").onclick=()=>{ pushPrefs.invitado=true; save(PKEY,pushPrefs); $("modalInvitePush").classList.remove("open"); };
 $("invite-si").onclick=async ()=>{
