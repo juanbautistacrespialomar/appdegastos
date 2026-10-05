@@ -21,6 +21,9 @@
      Para la próxima versión, agregá su entrada arriba de todo (máximo 4 o 5 líneas cortas). -->
 <script type="application/json" id="novedades">
 {
+  "8.4": [
+    "Si la app quedó abierta de un mes al otro, al volver te muestra el mes nuevo."
+  ],
   "8.3": [
     "Borrar ya no pregunta «¿Seguro?»: borra y te da unos segundos para tocar Deshacer.",
     "Movimientos busca también en todos los meses (botón «Todos los meses»).",
@@ -44,7 +47,7 @@
   ]
 }
 </script>
-<link rel="stylesheet" href="css/app.css?v=8.3">
+<link rel="stylesheet" href="css/app.css?v=8.4">
 </head>
 <body>
 <div class="statusbar-bg"></div>
@@ -215,26 +218,26 @@
 /* Versión de la app. AL PUBLICAR UNA VERSIÓN NUEVA cambiá este número Y el ?v= de los
    archivos de abajo (y del css en el <head>): así el celu baja los archivos nuevos en vez de
    usar los viejos guardados. El test test/estructura.test.js controla que coincidan. */
-const APP_VERSION = "8.3";
+const APP_VERSION = "8.4";
 </script>
 <!-- El código, en orden de carga (todos comparten el alcance global). -->
-<script src="js/01-dominio.js?v=8.3"></script>
-<script src="js/02-base.js?v=8.3"></script>
-<script src="js/03-seguridad.js?v=8.3"></script>
-<script src="js/04-recordatorios.js?v=8.3"></script>
-<script src="js/05-ui.js?v=8.3"></script>
-<script src="js/06-resumen-movimientos.js?v=8.3"></script>
-<script src="js/07-plan.js?v=8.3"></script>
-<script src="js/08-ajustes.js?v=8.3"></script>
-<script src="js/09-carga-gasto.js?v=8.3"></script>
-<script src="js/10-exportar.js?v=8.3"></script>
-<script src="js/11-eventos.js?v=8.3"></script>
-<script src="js/12-modales.js?v=8.3"></script>
-<script src="js/13-ios-teclado.js?v=8.3"></script>
-<script src="js/14-arranque.js?v=8.3"></script>
-<script src="js/15-actualizacion.js?v=8.3"></script>
-<script src="js/16-pwa.js?v=8.3"></script>
-<script src="js/17-ios-altura.js?v=8.3"></script>
+<script src="js/01-dominio.js?v=8.4"></script>
+<script src="js/02-base.js?v=8.4"></script>
+<script src="js/03-seguridad.js?v=8.4"></script>
+<script src="js/04-recordatorios.js?v=8.4"></script>
+<script src="js/05-ui.js?v=8.4"></script>
+<script src="js/06-resumen-movimientos.js?v=8.4"></script>
+<script src="js/07-plan.js?v=8.4"></script>
+<script src="js/08-ajustes.js?v=8.4"></script>
+<script src="js/09-carga-gasto.js?v=8.4"></script>
+<script src="js/10-exportar.js?v=8.4"></script>
+<script src="js/11-eventos.js?v=8.4"></script>
+<script src="js/12-modales.js?v=8.4"></script>
+<script src="js/13-ios-teclado.js?v=8.4"></script>
+<script src="js/14-arranque.js?v=8.4"></script>
+<script src="js/15-actualizacion.js?v=8.4"></script>
+<script src="js/16-pwa.js?v=8.4"></script>
+<script src="js/17-ios-altura.js?v=8.4"></script>
 
 
 </body>
