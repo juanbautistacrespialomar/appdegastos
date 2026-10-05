@@ -1,5 +1,5 @@
 /* Tests de los cálculos de Tu Contador (js/01-dominio.js).
-   Correr: node --test tests/      (sin instalar nada; Node 18 o más nuevo)
+   Correr: node --test test/*.test.js      (sin instalar nada; Node 18 o más nuevo)
    En GitHub corren solos en cada subida (.github/workflows/tests.yml). */
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -128,4 +128,15 @@ test("cache de cálculos: después de invalidar, refleja los cambios", () => {
   assert.equal(app('computeMes("2026-10").tV'), 1000);     // todavía cacheado
   app("invalidarCalc()");
   assert.equal(app('computeMes("2026-10").tV'), 1500);
+});
+
+test("cuotas en Plan: primero las que terminan antes; las que no empezaron, al final", () => {
+  const app = cargarDominio({ config: { ingresos: [], fijos: [], cuotas: [
+    { n: "Larga",    f: "Visa", c: 1, t: 12, m: 1, d: "2026-10" },   // termina sep 27
+    { n: "Futura",   f: "Visa", c: 1, t: 3,  m: 1, d: "2026-12" },   // empieza en diciembre
+    { n: "Corta",    f: "Visa", c: 2, t: 3,  m: 1, d: "2026-10" },   // termina nov 26
+    { n: "Última",   f: "Visa", c: 6, t: 6,  m: 1, d: "2026-10" } ] } });  // termina este mes
+  assert.equal(app('finCuota(config.cuotas[0])'), "2027-09");
+  assert.equal(app('finCuota(config.cuotas[3])'), "2026-10");
+  assert.deepEqual(app('ordenarCuotas([0,1,2,3], "2026-10").map(i => config.cuotas[i].n)'), ["Última", "Corta", "Larga", "Futura"]);
 });
