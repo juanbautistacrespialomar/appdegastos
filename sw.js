@@ -9,14 +9,16 @@
      "versión nueva" del index.html para no quedarse pegado a la copia vieja.
    Para forzar una limpieza total, subí el número de versión del cache (CACHE). */
 
-const CACHE = "mis-gastos-v30";
+const CACHE = "mis-gastos-v31";   // v31: Tu Contador 8.0 (paleta nueva, fuentes propias e íconos nuevos)
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
-  "./icon-maskable.png"
+  "./icon-maskable.png",
+  "./fonts/InterTight-latin.woff2",
+  "./fonts/SplineSansMono-latin.woff2"
 ];
 
 // Instalación: precacheamos los assets base
