@@ -62,7 +62,7 @@ Te manda recordatorios diarios con humor argentino para que no te olvides de car
 ├── sw.js                       # Service worker (offline + push + actualización)
 ├── manifest.json               # Manifest PWA (nombre, íconos, colores)
 ├── icon-192.png / icon-512.png / icon-maskable.png
-├── tests/                      # Tests (node --test, sin instalar nada)
+├── test/                      # Tests (node --test, sin instalar nada)
 ├── .github/workflows/
 │   ├── tests.yml               # Corre los tests en cada subida
 │   └── recordatorios.yml       # Cron diario de recordatorios
@@ -80,11 +80,11 @@ Te manda recordatorios diarios con humor argentino para que no te olvides de car
 ## Tests
 
 ```
-node --test tests/*.test.js
+node --test test/*.test.js
 ```
 
-- `tests/dominio.test.js` — los cálculos: cuotas (incluida la que "ya venía"), vigencias de fijos e ingresos, saldo del mes, comparación a la misma altura del mes, variación %, proyección de variables, migración de backups viejos y el cache de cálculos.
-- `tests/estructura.test.js` — que versión y `?v=` coincidan, que exista cada archivo que pide `index.html`, que no quede ningún JS sin cargar, que haya novedades para la versión actual, que las rutas del CSS existan y que ningún JS tenga errores de sintaxis.
+- `test/dominio.test.js` — los cálculos: cuotas (incluida la que "ya venía"), vigencias de fijos e ingresos, saldo del mes, comparación a la misma altura del mes, variación %, proyección de variables, migración de backups viejos y el cache de cálculos.
+- `test/estructura.test.js` — que versión y `?v=` coincidan, que exista cada archivo que pide `index.html`, que no quede ningún JS sin cargar, que haya novedades para la versión actual, que las rutas del CSS existan y que ningún JS tenga errores de sintaxis.
 
 ---
 

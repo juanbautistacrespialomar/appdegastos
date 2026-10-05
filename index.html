@@ -21,6 +21,13 @@
      Para la próxima versión, agregá su entrada arriba de todo (máximo 4 o 5 líneas cortas). -->
 <script type="application/json" id="novedades">
 {
+  "8.3": [
+    "Borrar ya no pregunta «¿Seguro?»: borra y te da unos segundos para tocar Deshacer.",
+    "Movimientos busca también en todos los meses (botón «Todos los meses»).",
+    "Plan: ingresos, fijos, cuotas y presupuestos se pliegan y despliegan con un toque.",
+    "Cada tarjeta tiene su color y sus cuotas van de la que termina antes a la que termina después.",
+    "Arriba de todo ya no se ve borroso al scrollear en iPhone."
+  ],
   "8.2": [
     "Por dentro: el código quedó ordenado en archivos y con pruebas automáticas. Para vos no cambia nada."
   ],
@@ -37,7 +44,7 @@
   ]
 }
 </script>
-<link rel="stylesheet" href="css/app.css?v=8.2">
+<link rel="stylesheet" href="css/app.css?v=8.3">
 </head>
 <body>
 <div class="statusbar-bg"></div>
@@ -75,6 +82,7 @@
         <input class="full" type="text" id="f-texto" placeholder="Buscar (ej: nafta)"></div>
       <select id="f-cat"></select>
       <select id="f-medio"></select>
+      <div class="full segctl" id="f-alc" role="group" aria-label="Dónde buscar"><button type="button" data-alc="mes" class="on">Este mes</button><button type="button" data-alc="todos">Todos los meses</button></div>
       <button class="btn btn-ghost full" id="f-clear">Limpiar filtros</button>
     </div>
   </div>
@@ -206,27 +214,27 @@
 <script>
 /* Versión de la app. AL PUBLICAR UNA VERSIÓN NUEVA cambiá este número Y el ?v= de los
    archivos de abajo (y del css en el <head>): así el celu baja los archivos nuevos en vez de
-   usar los viejos guardados. El test tests/estructura.test.js controla que coincidan. */
-const APP_VERSION = "8.2";
+   usar los viejos guardados. El test test/estructura.test.js controla que coincidan. */
+const APP_VERSION = "8.3";
 </script>
 <!-- El código, en orden de carga (todos comparten el alcance global). -->
-<script src="js/01-dominio.js?v=8.2"></script>
-<script src="js/02-base.js?v=8.2"></script>
-<script src="js/03-seguridad.js?v=8.2"></script>
-<script src="js/04-recordatorios.js?v=8.2"></script>
-<script src="js/05-ui.js?v=8.2"></script>
-<script src="js/06-resumen-movimientos.js?v=8.2"></script>
-<script src="js/07-plan.js?v=8.2"></script>
-<script src="js/08-ajustes.js?v=8.2"></script>
-<script src="js/09-carga-gasto.js?v=8.2"></script>
-<script src="js/10-exportar.js?v=8.2"></script>
-<script src="js/11-eventos.js?v=8.2"></script>
-<script src="js/12-modales.js?v=8.2"></script>
-<script src="js/13-ios-teclado.js?v=8.2"></script>
-<script src="js/14-arranque.js?v=8.2"></script>
-<script src="js/15-actualizacion.js?v=8.2"></script>
-<script src="js/16-pwa.js?v=8.2"></script>
-<script src="js/17-ios-altura.js?v=8.2"></script>
+<script src="js/01-dominio.js?v=8.3"></script>
+<script src="js/02-base.js?v=8.3"></script>
+<script src="js/03-seguridad.js?v=8.3"></script>
+<script src="js/04-recordatorios.js?v=8.3"></script>
+<script src="js/05-ui.js?v=8.3"></script>
+<script src="js/06-resumen-movimientos.js?v=8.3"></script>
+<script src="js/07-plan.js?v=8.3"></script>
+<script src="js/08-ajustes.js?v=8.3"></script>
+<script src="js/09-carga-gasto.js?v=8.3"></script>
+<script src="js/10-exportar.js?v=8.3"></script>
+<script src="js/11-eventos.js?v=8.3"></script>
+<script src="js/12-modales.js?v=8.3"></script>
+<script src="js/13-ios-teclado.js?v=8.3"></script>
+<script src="js/14-arranque.js?v=8.3"></script>
+<script src="js/15-actualizacion.js?v=8.3"></script>
+<script src="js/16-pwa.js?v=8.3"></script>
+<script src="js/17-ios-altura.js?v=8.3"></script>
 
 
 </body>
