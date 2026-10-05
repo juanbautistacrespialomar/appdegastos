@@ -1,0 +1,23 @@
+name: Tests - Tu Contador
+
+# Corre los tests cada vez que subís algo a main (y en los pull requests).
+# Si algo se rompió, el commit aparece con una ✗ roja en GitHub y te llega un mail.
+# No instala nada: usa el "node --test" que ya trae Node.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}   # también lo podés correr a mano desde la pestaña Actions
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Correr tests
+        run: node --test tests/*.test.js
