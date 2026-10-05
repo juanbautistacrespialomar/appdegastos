@@ -12,8 +12,10 @@ Te manda recordatorios diarios con humor argentino para que no te olvides de car
 - **PWA instalable** — se agrega al escritorio y funciona offline gracias al service worker.
 - **Bloqueo de seguridad** — PIN (hasheado con SHA-256 + salt) y desbloqueo biométrico (Face ID / Touch ID vía WebAuthn / passkey de plataforma).
 - **Gastos variables** por 22 categorías con colores propios.
-- **Gastos fijos, cuotas e ingresos** configurables, con vista mensual y navegación entre meses.
-- **Visualizaciones** — gráfico donut de gastos por categoría y proyección de saldo a 6 meses.
+- **Gastos fijos, cuotas e ingresos** configurables, con vista mensual y navegación entre meses. Cada cuota tiene su categoría real, así suma donde corresponde en los gráficos.
+- **Resumen** — saldo del mes, tasa de ahorro y variación contra el mes anterior (a la misma altura del mes), ranking de categorías en barras (top 5 + resto), presupuestos por categoría y proyección de saldo a 6 meses con gastos variables estimados.
+- **Movimientos** — registro de gastos variables agrupado por día, con buscador y filtros.
+- **Plan** — ingresos, gastos fijos, cuotas por tarjeta y presupuestos: se ven y se editan en el mismo lugar.
 - **Ocultar importes** — botón 👁 para mostrar/esconder los montos de un vistazo.
 - **Backup export/import** — exportás toda tu data a un JSON y la restaurás cuando quieras (clave para no depender solo del `localStorage`).
 - **Recordatorios push** — notificación diaria con la persona "Tu Contador".
