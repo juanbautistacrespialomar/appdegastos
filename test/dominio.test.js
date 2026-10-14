@@ -104,7 +104,33 @@ test("proyección: estima variables con el promedio de los 3 meses cerrados que 
     { id: "1", fecha: m1 + "-10", monto: 300000, categoria: "Comida", medio: "Visa" },
     { id: "2", fecha: m2 + "-10", monto: 100000, categoria: "Comida", medio: "Visa" },
     { id: "3", fecha: m4 + "-10", monto: 999999, categoria: "Comida", medio: "Visa" } ] }); // fuera de la ventana
-  assert.deepEqual(app2("estimarVariables()"), { est: 200000, n: 2 });
+  const e = app2("estimarVariables()");
+  assert.equal(e.est, 200000); assert.equal(e.n, 2);
+  const dias = app2(`diasMes("${m1}") + diasMes("${m2}")`);
+  assert.equal(e.diario, 400000 / dias);
+});
+
+test("proyección v8.5: promedio diario y estimación por mes según sus días", () => {
+  // Ventana fija para no depender de la fecha real: jul (31), ago (31), sep (30) de 2026.
+  const app = cargarDominio({ mov: [
+    { id: "1", fecha: "2026-07-10", monto: 310000, categoria: "Comida", medio: "Visa" },
+    { id: "2", fecha: "2026-08-10", monto: 310000, categoria: "Comida", medio: "Visa" },
+    { id: "3", fecha: "2026-09-10", monto: 300000, categoria: "Comida", medio: "Visa" } ] });
+  assert.equal(app('diasMes("2026-02")'), 28);
+  assert.equal(app('diasMes("2028-02")'), 29);
+  const diario = 920000 / 92;                                   // 10.000 por día
+  // Mes en curso (14/10): lo cargado + 17 días que faltan.
+  assert.equal(app(`variablesEstimadas("2026-10", 50000, ${diario}, "2026-10-14")`), 50000 + 17 * 10000);
+  // Último día del mes: ya no falta nada → manda lo real.
+  assert.equal(app(`variablesEstimadas("2026-10", 50000, ${diario}, "2026-10-31")`), null);
+  // Futuros: cada mes según sus días (ya no es siempre el mismo número).
+  assert.equal(app(`variablesEstimadas("2026-11", 0, ${diario}, "2026-10-14")`), 300000);
+  assert.equal(app(`variablesEstimadas("2027-02", 0, ${diario}, "2026-10-14")`), 280000);
+  // Futuro donde ya cargaste más que el estimado → manda lo real. Mes cerrado → real.
+  assert.equal(app(`variablesEstimadas("2026-11", 400000, ${diario}, "2026-10-14")`), null);
+  assert.equal(app(`variablesEstimadas("2026-09", 0, ${diario}, "2026-10-14")`), null);
+  // Sin base para estimar → null.
+  assert.equal(app('variablesEstimadas("2026-11", 0, 0, "2026-10-14")'), null);
 });
 
 test("backups viejos: se migran al formato actual sin perder nada", () => {
