@@ -145,13 +145,27 @@ function deltaGasto(a,b){
   if(p===0) return {t:"= igual", cls:"eq"};
   return {t:ic(p>0?"arrUp":"arrDown")+Math.abs(p)+"%", cls:p>0?"up":"down"};
 }
-/* Estimación de gastos variables para meses que todavía no terminaron: promedio de los
-   últimos 3 meses CERRADOS que tengan variables cargados. Sin esto, la proyección restaba
-   solo fijos + cuotas y los meses futuros se veían artificialmente en verde. */
+/* Estimación de gastos variables (v8.5): promedio DIARIO de los últimos 3 meses CERRADOS que
+   tengan variables cargados (total de esos meses / total de días de esos meses).
+   Antes se usaba un único promedio MENSUAL, y como siempre se anclaba a hoy, todos los meses
+   proyectados mostraban exactamente el mismo número. Con la tasa diaria:
+   - mes en curso: lo que ya gastaste + tasa × días que faltan;
+   - meses futuros: tasa × días de ese mes (febrero pesa menos que octubre).
+   est (promedio mensual) se mantiene por compatibilidad. */
+function diasMes(ym){ const [y,m]=ym.split("-").map(Number); return new Date(y,m,0).getDate(); }
 function estimarVariables(){
-  const base=ymNow(); let s=0, n=0;
-  for(let i=1;i<=3;i++){ const cc=computeMes(ymAdd(base,-i)); if(cc.tV>0){ s+=cc.tV; n++; } }
-  return {est: n ? s/n : 0, n};
+  const base=ymNow(); let s=0, n=0, dias=0;
+  for(let i=1;i<=3;i++){ const ym=ymAdd(base,-i), cc=computeMes(ym); if(cc.tV>0){ s+=cc.tV; n++; dias+=diasMes(ym); } }
+  return {est: n ? s/n : 0, n, diario: dias ? s/dias : 0};
+}
+// Variables estimados para el mes ym (null si no hay base para estimar o si ya está cerrado).
+// hoyStr = "AAAA-MM-DD" (se recibe por parámetro para poder testearlo).
+function variablesEstimadas(ym, tV, diario, hoyStr){
+  const hoyYm=hoyStr.slice(0,7);
+  if(!(diario>0) || ym<hoyYm) return null;
+  if(ym===hoyYm){ const faltan=diasMes(ym)-(+hoyStr.slice(8,10)); return faltan>0 ? tV+diario*faltan : null; }
+  const e=diario*diasMes(ym);
+  return e>tV ? e : null;     // si en un mes futuro ya cargaste más que el estimado, manda lo real
 }
 
 /* ===== Cuotas: fin y orden (v8.3) ===== */

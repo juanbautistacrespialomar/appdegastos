@@ -22,7 +22,9 @@ function exportar(){
 }
 
 // Exporta TODA la info en una tabla plana (un renglón por línea de cada mes), lista para
-// abrir en Excel y pivotear. Columnas: Mes | Tipo | Clasificación | Importe.
+// abrir en Excel y pivotear. Columnas: Mes | Fecha | Tipo | Categoría | Detalle | Medio | Importe.
+// v8.5: los gastos variables salen APERTURADOS, uno por renglón con su fecha, descripción y
+// medio de pago (antes solo traían la categoría y no se podía saber qué gasto era cada uno).
 // Rango de meses: desde el primer mes con datos hasta el último con obligación/movimiento,
 // garantizando como mínimo el mismo horizonte que "Saldo proyectado" (mes actual + HORIZONTE_FWD).
 function exportarExcel(){
@@ -51,15 +53,19 @@ function exportarExcel(){
   // Signo: los ingresos van en positivo y los gastos en negativo, así sumando la columna
   // de un mes te da el saldo (ingresos - gastos) idéntico al de la app.
   const num  = v => String(Math.round(v));
-  L.push(["Mes","Tipo","Clasificación","Importe"].join(sep));
+  // Fecha en dd/mm/aaaa y sin comillas: Excel en español la toma como fecha real (filtrable).
+  const fecha = f => { const p=String(f||"").split("-"); return p.length===3 ? p[2]+"/"+p[1]+"/"+p[0] : ""; };
+  L.push(["Mes","Fecha","Tipo","Categoría","Detalle","Medio de pago","Importe"].join(sep));
 
   let ym = ini, guarda = 0;
   while(ym <= fin && guarda++ < 1200){   // tope de seguridad (100 años): nunca un loop infinito
     const c = computeMes(ym);
-    c.ingresos.forEach(g => L.push([cell(ym), cell("Ingreso"),         cell(g.nombre),    num(g.monto)].join(sep)));
-    c.fijos   .forEach(f => L.push([cell(ym), cell("Gastos fijos"),    cell(f.nombre),    num(-f.monto)].join(sep)));
-    c.cuotas  .forEach(q => L.push([cell(ym), cell("Cuotas"),          cell(q.nombre),    num(-q.monto)].join(sep)));
-    c.variables.forEach(v => L.push([cell(ym), cell("Gastos variables"), cell(v.categoria), num(-v.monto)].join(sep)));
+    c.ingresos.forEach(g => L.push([cell(ym), "", cell("Ingreso"),      cell(""),    cell(g.nombre), cell(""),       num(g.monto)].join(sep)));
+    c.fijos   .forEach(f => L.push([cell(ym), "", cell("Gastos fijos"), cell(f.cat), cell(f.nombre), cell(""),       num(-f.monto)].join(sep)));
+    c.cuotas  .forEach(q => L.push([cell(ym), "", cell("Cuotas"),       cell(q.cat), cell(q.nombre), cell(q.fuente), num(-q.monto)].join(sep)));
+    // Variables de más viejo a más nuevo dentro del mes (computeMes los trae al revés para la pantalla).
+    c.variables.slice().reverse().forEach(v => L.push([cell(ym), fecha(v.fecha), cell("Gastos variables"),
+      cell(v.categoria), cell(v.descripcion||""), cell(v.medio||""), num(-v.monto)].join(sep)));
     ym = ymAdd(ym, 1);
   }
 

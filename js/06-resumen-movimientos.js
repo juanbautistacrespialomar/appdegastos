@@ -4,14 +4,14 @@
 "use strict";
 
 function proyeccion(){
-  const hoyYm=ymNow(), E=estimarVariables();
+  const E=estimarVariables(), hoyStr=hoy();
   const arr=[]; let hayEst=false;
   for(let i=0;i<6;i++){
     const ym=ymAdd(mesActivo,i), c=computeMes(ym);
-    // Meses cerrados: dato real. Mes en curso y futuros: si lo cargado en variables es menos
-    // que el promedio, usamos el promedio (estimado de cierre).
-    let varUsado=c.tV, est=false;
-    if(ym>=hoyYm && E.n && E.est>c.tV){ varUsado=E.est; est=true; hayEst=true; }
+    // Meses cerrados: dato real. Mes en curso: real + promedio diario × días que faltan.
+    // Futuros: promedio diario × días del mes (salvo que ya hayas cargado más).
+    const e=variablesEstimadas(ym, c.tV, E.diario, hoyStr);
+    const est=e!=null, varUsado=est?e:c.tV; if(est) hayEst=true;
     arr.push({mes:MC[(+ym.split("-")[1])-1], saldo:c.ingreso-c.tF-c.tC-varUsado, actual:i===0, est});
   }
   const maxAbs=Math.max(...arr.map(a=>Math.abs(a.saldo)),1);
@@ -35,8 +35,9 @@ function proyeccion(){
     bars+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h,1)}" rx="3" style="fill:${col};fill-opacity:${a.est?.38:1};${a.est?`stroke:${col};stroke-dasharray:3 2;stroke-width:1`:''}"></rect>
       <text x="${x+bw/2}" y="${ly}" text-anchor="middle" style="fill:var(--muted);font-variant-numeric:tabular-nums" font-size="10">${oculto ? '•••' : kf(a.saldo)}</text>
       <text x="${x+bw/2}" y="${H-6}" text-anchor="middle" style="fill:${a.actual?'var(--txt)':'var(--muted)'}" font-size="10" ${a.actual?'font-weight="600"':''}>${a.mes}${a.est?'*':''}</text>`; });
+  const fd=v=>v>=1e6?(v/1e6).toFixed(1).replace('.',',')+'M':v>=1e4?Math.round(v/1e3)+'k':Math.round(v).toLocaleString('es-AR');
   const nota = hayEst
-    ? `* Estimado: suma ${oculto?'$ •••':'$'+(E.est>=1e6?(E.est/1e6).toFixed(1).replace('.',',')+'M':Math.round(E.est/1e3)+'k')}/mes de gastos variables (tu promedio de los últimos ${E.n===1?'mes':E.n+' meses'}).`
+    ? `* Estimado: ${oculto?'$ •••':'$'+fd(E.diario)}/día de gastos variables (tu promedio diario ${E.n===1?'del último mes':'de los últimos '+E.n+' meses'}).`
     : (E.n ? '' : 'Todavía no hay meses cerrados con gastos variables: la proyección resta solo fijos y cuotas.');
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}"><line x1="${pad-6}" y1="${zero}" x2="${W-pad+6}" y2="${zero}" style="stroke:var(--border)" stroke-width="1"/>${bars}</svg>`
     + (nota?`<p class="pnote">${nota}</p>`:'');
